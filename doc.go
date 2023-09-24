@@ -4,11 +4,11 @@ import (
 	"strings"
 )
 
-type Document struct {
+type Doc struct {
 	nodes []Node
 }
 
-func (d Document) String() string {
+func (d Doc) String() string {
 	nodes := []string{}
 	for _, node := range d.nodes {
 		nsdfnsd := stringRecNode("", node)

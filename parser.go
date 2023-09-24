@@ -26,14 +26,14 @@ func newParser(bs []byte) *Parser {
 	}
 }
 
-func (p *Parser) parse() (Document, error) {
+func (p *Parser) parse() (Doc, error) {
 	cx := &ParseContext{
 		logger: p.logger,
 	}
 
 	nodes, err := parseScope(cx, p.sc, false)
 
-	return Document{
+	return Doc{
 		nodes: nodes,
 	}, err
 }
