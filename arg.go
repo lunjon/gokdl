@@ -1,11 +1,16 @@
 package gokdl
 
 import (
+	"fmt"
 	"strconv"
 )
 
 type Arg struct {
 	Value any
+}
+
+func (a Arg) String() string {
+	return fmt.Sprint(a.Value)
 }
 
 func newBoolArg(lit string) (Arg, error) {
