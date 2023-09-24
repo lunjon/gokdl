@@ -45,9 +45,12 @@ MyNode "string arg" {
   - [x] Integers
   - [x] Float
   - [x] Scientific notation
-  - [ ] Negative numbers
+  - [x] Negative numbers
 - Strings
   - [x] Regular strings (double quotes)
   - [ ] Raw string literals
   - [ ] Raw string literals with `#`
-- [ ] Support type annotations
+- Type annotations
+  - [ ] Unsigned integers
+  - [ ] Signed integers
+  - [ ] UUID

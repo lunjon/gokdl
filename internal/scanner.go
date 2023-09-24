@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
@@ -35,7 +36,7 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 		return s.ScanWhitespace()
 	} else if unicode.IsDigit(ch) {
 		s.Unread()
-		return s.ScanNumber()
+		return s.ScanNumber(false)
 	}
 
 	switch ch {
@@ -45,6 +46,16 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 		return QUOTE, string(ch)
 	case '=':
 		return EQUAL, string(ch)
+	case '-':
+		next := s.read()
+		s.Unread()
+
+		if unicode.IsDigit(next) {
+			s.Unread()
+			return s.ScanNumber(true)
+		}
+
+		return HYPHEN, string(ch)
 	case '*':
 		next := s.read()
 		if next == '/' {
@@ -110,13 +121,21 @@ func (s *Scanner) ScanWhile(pred func(rune) bool) string {
 	return buf.String()
 }
 
-func (s *Scanner) ScanNumber() (Token, string) {
+// ScanNumber tries to scan a number in any of the supported formats.
+// Use `neg` to indicate that the number was prefixed with a hyphen.
+func (s *Scanner) ScanNumber(neg bool) (Token, string) {
 	first := s.read()
 	second := s.read()
+	final := func(s string) string {
+		if neg {
+			return "-" + s
+		}
+		return s
+	}
 
 	if second == EOF_RUNE {
 		s.Unread()
-		return NUM, string(first)
+		return NUM, final(string(first))
 	}
 
 	if second == '.' {
@@ -141,10 +160,12 @@ func (s *Scanner) ScanNumber() (Token, string) {
 				return INVALID, ""
 			}
 
-			return NUM, fmt.Sprintf("%s.%se%s", string(first), numsAfterDot, exp)
-		} else if tokenAfterNums == WS {
+			num := fmt.Sprintf("%s.%se%s", string(first), numsAfterDot, exp)
+			return NUM, final(num)
+		} else if tokenAfterNums == WS || tokenAfterNums == EOF {
 			s.Unread()
-			return NUM, fmt.Sprintf("%s.%s", string(first), numsAfterDot)
+			num := fmt.Sprintf("%s.%s", string(first), numsAfterDot)
+			return NUM, final(num)
 		}
 
 		return INVALID, ""
@@ -159,7 +180,7 @@ func (s *Scanner) ScanNumber() (Token, string) {
 			return INVALID, ""
 		}
 
-		return NUM, fmt.Sprint(n)
+		return NUM, final(fmt.Sprint(n))
 	} else if second == 'b' {
 		// Read binary
 		lit := s.ScanWhile(func(r rune) bool {
@@ -171,15 +192,19 @@ func (s *Scanner) ScanNumber() (Token, string) {
 			return INVALID, ""
 		}
 
-		return NUM, fmt.Sprint(n)
+		return NUM, final(fmt.Sprint(n))
 	} else if unicode.IsSpace(second) {
 		s.Unread()
-		return NUM, string(first)
+		return NUM, final(string(first))
 	}
 
+	// Read as integer
 	s.Unread()
-	lit := s.ScanWhile(unicode.IsDigit)
-	return NUM, lit
+	lit := s.ScanWhile(func(r rune) bool {
+		return unicode.IsDigit(r) || r == '_'
+	})
+
+	return NUM, final(strings.ReplaceAll(lit, "_", ""))
 }
 
 // Scan while whitespace only.

@@ -29,7 +29,7 @@ nesting-testing /*ignore this as well*/ {
 
 "Arbitrary name in quotes!"
 
-integer-arg 1234
+integer-arg -1234
 science-arg-a 1.78e12
 science-arg-b 1.78e-3
 science-arg-c 1.7883274

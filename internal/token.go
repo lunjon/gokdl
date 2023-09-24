@@ -23,6 +23,7 @@ const (
 	CBRACK_CLOSE      // }
 	QUOTE             // "
 	EQUAL             // =
+	HYPHEN            // -
 	COMMENT_LINE      // //
 	COMMENT_MUL_OPEN  // /*
 	COMMENT_MUL_CLOSE // */
