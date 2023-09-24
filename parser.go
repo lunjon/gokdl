@@ -4,30 +4,29 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 )
 
-type ParseContext struct {
+type parseContext struct {
 	logger *log.Logger
 }
 
-type Parser struct {
+type parser struct {
 	sc     *scanner
 	logger *log.Logger
 }
 
-func newParser(bs []byte) *Parser {
+func newParser(logger *log.Logger, bs []byte) *parser {
 	r := bytes.NewReader(bs)
-	return &Parser{
+	return &parser{
 		sc:     newScanner(r),
-		logger: log.New(os.Stderr, "", 0),
+		logger: logger,
 	}
 }
 
-func (p *Parser) parse() (Doc, error) {
-	cx := &ParseContext{
+func (p *parser) parse() (Doc, error) {
+	cx := &parseContext{
 		logger: p.logger,
 	}
 
@@ -38,7 +37,7 @@ func (p *Parser) parse() (Doc, error) {
 	}, err
 }
 
-func parseScope(cx *ParseContext, sc *scanner, isChild bool) ([]Node, error) {
+func parseScope(cx *parseContext, sc *scanner, isChild bool) ([]Node, error) {
 	nodes := []Node{}
 	done := false
 
@@ -98,7 +97,7 @@ func parseScope(cx *ParseContext, sc *scanner, isChild bool) ([]Node, error) {
 	return nodes, nil
 }
 
-func scanMultilineComment(cx *ParseContext, sc *scanner) error {
+func scanMultilineComment(cx *parseContext, sc *scanner) error {
 	cx.logger.Println("Scanning multiline comment")
 
 	for {
@@ -116,7 +115,7 @@ func scanMultilineComment(cx *ParseContext, sc *scanner) error {
 	return fmt.Errorf("no closing of multiline comment")
 }
 
-func scanNode(cx *ParseContext, sc *scanner, name string) (Node, error) {
+func scanNode(cx *parseContext, sc *scanner, name string) (Node, error) {
 	children := []Node{}
 	args := []Arg{}
 	props := []Prop{}
@@ -203,7 +202,7 @@ func scanNode(cx *ParseContext, sc *scanner, name string) (Node, error) {
 	}, nil
 }
 
-func scanString(cx *ParseContext, sc *scanner) (string, error) {
+func scanString(cx *parseContext, sc *scanner) (string, error) {
 	cx.logger.Println("Scanning string literal")
 
 	buf := strings.Builder{}
@@ -226,7 +225,7 @@ func scanString(cx *ParseContext, sc *scanner) (string, error) {
 	return buf.String(), nil
 }
 
-func scanProp(cx *ParseContext, sc *scanner, name string) (Prop, error) {
+func scanProp(cx *parseContext, sc *scanner, name string) (Prop, error) {
 	cx.logger.Println("Scanning node property:", name)
 
 	tok, _ := sc.scan()

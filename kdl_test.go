@@ -1,15 +1,15 @@
-package main
+package gokdl_test
 
 import (
-	"fmt"
-	"log"
+	"testing"
 
 	"github.com/lunjon/gokdl"
 )
 
-func main() {
+func TestParseExample(t *testing.T) {
 	bs := []byte(`
 // Line comment
+
 /*
 multiline
 	comment
@@ -19,14 +19,15 @@ node "arg" prop=1
 
 one; two; // Ignore this
 
-withchild /*ignore this as well*/ {
+nesting-testing /*ignore this as well*/ {
 	child-1; child-?;
+
 	child!THREE keyword="string" {
-		seriousNesting
+		nesting-should-work-here-as-well
 	}
 }
 
-"testing !!! this works, yay!"
+"Arbitrary name in quotes!"
 
 integer-arg 1234
 science-arg-a 1.78e12
@@ -36,12 +37,11 @@ science-arg-c 1.7883274
 // Node on multiple lines
 hello \
 	1 2 3 \
-	property="wowk"
+	myProp="wow"
 `)
-	doc, err := gokdl.Parse(bs)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	fmt.Println(doc.String())
+	_, err := gokdl.Parse(bs)
+	if err != nil {
+		t.Fatalf("expected no error but was: %s", err)
+	}
 }
