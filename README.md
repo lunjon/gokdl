@@ -33,7 +33,15 @@ MyNode "string arg" {
 }
 ```
 
+## API
+
+The generall API for module (including the types Doc, Node, Arg and Prop) is not done at all.
+
+Although it can be used, it is very rough. So I'll work on that when the parsing is more mature.
+
+
 ## Implementation Status
+
 - Comments
   - [x] Line
   - [x] Multiine
@@ -50,7 +58,4 @@ MyNode "string arg" {
   - [x] Regular strings (double quotes)
   - [ ] Raw string literals
   - [ ] Raw string literals with `#`
-- Type annotations
-  - [ ] Unsigned integers
-  - [ ] Signed integers
-  - [ ] UUID
+- [ ] Type annotations
