@@ -10,14 +10,24 @@ import (
 	"unicode"
 )
 
+type previous struct {
+	token Token
+	lit   string
+}
+
 // Scanner represents a lexical Scanner.
 type Scanner struct {
 	r   *bufio.Reader
 	eof bool
+	// State used in unread.
+	prev *previous // Set from last when Unread was called
+	last previous
 }
 
 func NewScanner(r io.Reader) *Scanner {
-	return &Scanner{r: bufio.NewReader(r)}
+	return &Scanner{
+		r: bufio.NewReader(r),
+	}
 }
 
 func (s *Scanner) ScanLine() {
@@ -29,89 +39,130 @@ func (s *Scanner) ScanLine() {
 
 // scan returns the next token and literal value.
 func (s *Scanner) Scan() (tok Token, lit string) {
+	if s.eof {
+		return EOF, ""
+	}
+
+	if s.prev != nil {
+		token := s.prev.token
+		lit := s.prev.lit
+		s.prev = nil
+		return token, lit
+	}
+
 	ch := s.read()
 
 	if unicode.IsSpace(ch) {
-		s.Unread()
+		s.r.UnreadRune()
 		return s.ScanWhitespace()
 	} else if unicode.IsDigit(ch) {
-		s.Unread()
-		return s.ScanNumber(false)
+		s.r.UnreadRune()
+		return s.scanNumber(false)
 	}
 
+	var token Token
+	var str string
 	switch ch {
 	case EOF_RUNE:
-		return EOF, ""
+		s.eof = true
+		token = EOF
 	case '"':
-		return QUOTE, string(ch)
+		token = QUOTE
+		str = string(ch)
 	case '=':
-		return EQUAL, string(ch)
+		token = EQUAL
+		str = string(ch)
 	case '-':
 		next := s.read()
-		s.Unread()
+		s.r.UnreadRune()
 
 		if unicode.IsDigit(next) {
-			s.Unread()
-			return s.ScanNumber(true)
+			s.r.UnreadRune()
+			return s.scanNumber(true)
 		}
 
-		return HYPHEN, string(ch)
+		token = HYPHEN
+		str = string(ch)
 	case '*':
 		next := s.read()
 		if next == '/' {
-			return COMMENT_MUL_CLOSE, "*/"
+			token = COMMENT_MUL_CLOSE
+			str = "*/"
+		} else {
+			s.r.UnreadRune()
+			token = CHAR
+			str = string(ch)
 		}
-		s.Unread()
-		return CHAR, string(ch)
 	case '/':
 		next := s.read()
 		switch next {
 		case '/':
-			return COMMENT_LINE, "//"
+			token = COMMENT_LINE
+			str = "//"
 		case '*':
-			return COMMENT_MUL_OPEN, "/*"
+			token = COMMENT_MUL_OPEN
+			str = "/*"
 		case '-':
-			return COMMENT_SD, "/-"
+			token = COMMENT_SD
+			str = "/-"
 		default:
-			s.Unread()
+			s.r.UnreadRune()
 			return CHAR, string(ch)
 		}
 	case ';':
-		return SEMICOLON, string(ch)
+		token = SEMICOLON
+		str = string(ch)
 	case '{':
-		return CBRACK_OPEN, string(ch)
+		token = CBRACK_OPEN
+		str = string(ch)
 	case '}':
-		return CBRACK_CLOSE, string(ch)
+		token = CBRACK_CLOSE
+		str = string(ch)
 	case '[':
-		return SBRACK_OPEN, string(ch)
+		token = SBRACK_OPEN
+		str = string(ch)
 	case ']':
-		return SBRACK_CLOSE, string(ch)
+		token = SBRACK_CLOSE
+		str = string(ch)
 	case '<':
-		return LESS, string(ch)
+		token = LESS
+		str = string(ch)
 	case '>':
-		return GREAT, string(ch)
+		token = GREAT
+		str = string(ch)
 	case ',':
-		return COMMA, string(ch)
+		token = COMMA
+		str = string(ch)
 	case '(':
-		return PAREN_OPEN, string(ch)
+		token = PAREN_OPEN
+		str = string(ch)
 	case ')':
-		return PAREN_CLOSE, string(ch)
+		token = PAREN_CLOSE
+		str = string(ch)
 	case '\\':
-		return BACKSLASH, string(ch)
+		token = BACKSLASH
+		str = string(ch)
 	default:
-		return CHAR, string(ch)
+		token = CHAR
+		str = string(ch)
 	}
+
+	return s.setAndReturn(token, str)
 }
 
 func (s *Scanner) ScanWhile(pred func(rune) bool) string {
 	var buf bytes.Buffer
-	buf.WriteRune(s.read())
+	if s.prev != nil {
+		buf.WriteString(s.prev.lit)
+		s.prev = nil
+	}
 
 	for {
-		if ch := s.read(); ch == EOF_RUNE {
+		ch := s.read()
+		if ch == EOF_RUNE {
 			break
 		} else if !pred(ch) {
-			s.Unread()
+			s.r.UnreadRune()
 			break
 		} else {
 			buf.WriteRune(ch)
@@ -121,9 +172,9 @@ func (s *Scanner) ScanWhile(pred func(rune) bool) string {
 	return buf.String()
 }
 
-// ScanNumber tries to scan a number in any of the supported formats.
+// scanNumber tries to scan a number in any of the supported formats.
 // Use `neg` to indicate that the number was prefixed with a hyphen.
-func (s *Scanner) ScanNumber(neg bool) (Token, string) {
+func (s *Scanner) scanNumber(neg bool) (Token, string) {
 	first := s.read()
 	second := s.read()
 	final := func(s string) string {
@@ -134,15 +185,15 @@ func (s *Scanner) ScanNumber(neg bool) (Token, string) {
 	}
 
 	if second == EOF_RUNE {
-		s.Unread()
-		return NUM, final(string(first))
+		s.r.UnreadRune()
+		return s.setAndReturn(NUM, final(string(first)))
 	}
 
 	if second == '.' {
 		// Read scientific notation: 1.234e-42
 		numsAfterDot := s.ScanWhile(unicode.IsDigit)
 		if numsAfterDot == "" {
-			return INVALID, ""
+			return s.setAndReturn(INVALID, "")
 		}
 
 		tokenAfterNums, sAfterNums := s.Scan()
@@ -161,14 +212,14 @@ func (s *Scanner) ScanNumber(neg bool) (Token, string) {
 			}
 
 			num := fmt.Sprintf("%s.%se%s", string(first), numsAfterDot, exp)
-			return NUM, final(num)
+			return s.setAndReturn(NUM, final(num))
 		} else if tokenAfterNums == WS || tokenAfterNums == EOF {
 			s.Unread()
 			num := fmt.Sprintf("%s.%s", string(first), numsAfterDot)
-			return NUM, final(num)
+			return s.setAndReturn(NUM, final(num))
 		}
 
-		return INVALID, ""
+		return s.setAndReturn(INVALID, "")
 	} else if second == 'x' {
 		// Read hexadecimal: 0xdeadbeef
 		lit := s.ScanWhile(func(r rune) bool {
@@ -177,10 +228,10 @@ func (s *Scanner) ScanNumber(neg bool) (Token, string) {
 
 		n, err := strconv.ParseInt(lit, 16, 64)
 		if err != nil {
-			return INVALID, ""
+			return s.setAndReturn(INVALID, "")
 		}
 
-		return NUM, final(fmt.Sprint(n))
+		return s.setAndReturn(NUM, final(fmt.Sprint(n)))
 	} else if second == 'b' {
 		// Read binary
 		lit := s.ScanWhile(func(r rune) bool {
@@ -189,35 +240,28 @@ func (s *Scanner) ScanNumber(neg bool) (Token, string) {
 
 		n, err := strconv.ParseInt(lit, 2, 64)
 		if err != nil {
-			return INVALID, ""
+			return s.setAndReturn(INVALID, "")
 		}
 
-		return NUM, final(fmt.Sprint(n))
+		return s.setAndReturn(NUM, final(fmt.Sprint(n)))
 	} else if unicode.IsSpace(second) {
-		s.Unread()
-		return NUM, final(string(first))
+		s.r.UnreadRune()
+		return s.setAndReturn(NUM, final(string(first)))
 	}
 
 	// Read as integer
-	s.Unread()
+	s.r.UnreadRune()
 	lit := s.ScanWhile(func(r rune) bool {
 		return unicode.IsDigit(r) || r == '_'
 	})
 
-	return NUM, final(strings.ReplaceAll(lit, "_", ""))
+	return s.setAndReturn(NUM, final(strings.ReplaceAll(lit, "_", "")))
 }
 
 // Scan while whitespace only.
 func (s *Scanner) ScanWhitespace() (Token, string) {
 	lit := s.ScanWhile(unicode.IsSpace)
-	return WS, lit
-}
-
-// Scan while non-whitespice.
-func (s *Scanner) ScanNonWhitespace() string {
-	return s.ScanWhile(func(r rune) bool {
-		return !unicode.IsSpace(r)
-	})
+	return s.setAndReturn(WS, lit)
 }
 
 // scanLetters consumes the current rune and all contiguous ident runes.
@@ -227,15 +271,17 @@ func (s *Scanner) ScanLetters() (Token, string) {
 	}
 
 	lit := s.ScanWhile(pred)
-	return IDENT, lit
+	return s.setAndReturn(IDENT, lit)
 }
 
 func (s *Scanner) ScanBareIdent() string {
-	return s.ScanWhile(IsIdentifier)
+	lit := s.ScanWhile(IsIdentifier)
+	s.setAndReturn(IDENT, lit)
+	return lit
 }
 
 // Read the next rune from the reader.
-// Returns the rune(0) if an error occurs (or io.EOF is returned).
+// Returns `eof` if an error occurs (or io.EOF is returned).
 func (s *Scanner) read() rune {
 	r, _, err := s.r.ReadRune()
 	if err != nil {
@@ -245,7 +291,11 @@ func (s *Scanner) read() rune {
 	return r
 }
 
-// unread places the previously read rune back on the reader.
+func (s *Scanner) setAndReturn(t Token, lit string) (Token, string) {
+	s.last = previous{token: t, lit: lit}
+	return t, lit
+}
+
 func (s *Scanner) Unread() {
-	_ = s.r.UnreadRune()
+	s.prev = &s.last
 }

@@ -1,6 +1,9 @@
 package internal
 
-import "unicode"
+import (
+	"fmt"
+	"unicode"
+)
 
 var EOF_RUNE = rune(0)
 
@@ -13,9 +16,8 @@ const (
 
 	// Literals
 	IDENT
-	NUM    // Integers (for now)
-	BOOL   // true | false
-	STREAM // Contiguous string of non-whitespace characters
+	NUM  // Integers (for now)
+	BOOL // true | false
 
 	// Special characters
 	SEMICOLON         // ;
@@ -46,7 +48,7 @@ const (
 )
 
 func IsInitialIdentToken(t Token) bool {
-	return t == CHAR || t == QUOTE
+	return t == CHAR || t == QUOTE || t == HYPHEN
 }
 
 func IsIdentifierToken(t Token) bool {
@@ -59,7 +61,26 @@ func IsIdentifierToken(t Token) bool {
 }
 
 func IsIdentifier(r rune) bool {
+	fmt.Println(string(r))
 	return !nonIdents[r] && !unicode.IsSpace(r)
+}
+
+func IsAnyOf(t Token, ts ...Token) bool {
+	for _, ot := range ts {
+		if t == ot {
+			return true
+		}
+	}
+	return false
+}
+
+func ContainsNonIdent(s string) bool {
+	for _, ch := range s {
+		if nonIdents[ch] {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {
@@ -76,6 +97,7 @@ func init() {
 }
 
 var (
+	// Runes that are not valid in identifiers
 	nonIdents map[rune]bool
 	hexRunes  map[rune]bool
 )

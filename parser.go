@@ -57,7 +57,7 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			if isChild {
 				done = true
 			} else {
-				return nil, fmt.Errorf("unexpected token: %s", lit)
+				return nil, fmt.Errorf("unexpected token: %s (isChild=%v)", lit, isChild)
 			}
 		case pkg.COMMENT_LINE:
 			sc.ScanLine()
@@ -80,12 +80,14 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			nodes = append(nodes, node)
 		default:
 			if pkg.IsInitialIdentToken(token) {
+				fmt.Println("A:", lit)
 				sc.Unread()
-				lit := sc.ScanBareIdent()
+				text := sc.ScanBareIdent()
+				fmt.Println("B:", text)
 
-				node, err := scanNode(cx, sc, lit)
+				node, err := scanNode(cx, sc, text)
 				if err != nil {
-					cx.logger.Println("Error scanning node:", lit, err)
+					cx.logger.Println("Error scanning node:", text, err)
 					return nil, err
 				}
 				nodes = append(nodes, node)
@@ -117,6 +119,18 @@ func scanMultilineComment(cx *parseContext, sc *pkg.Scanner) error {
 }
 
 func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
+	// This function gets called immediately after an
+	// idenfitier was read. So just check that the following
+	// token is valid.
+	next, nextlit := sc.Scan()
+	if !pkg.IsAnyOf(next, pkg.EOF, pkg.WS, pkg.SEMICOLON, pkg.CBRACK_CLOSE) {
+		return Node{}, fmt.Errorf("unexpected token in identifier: %s", nextlit)
+	}
+
+	fmt.Println("Next:", nextlit)
+
+	sc.Unread()
+
 	children := []Node{}
 	args := []Arg{}
 	props := []Prop{}
@@ -179,6 +193,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			}
 			children = append(children, ns...)
 		default:
+			cx.logger.Printf("%s: %s", name, lit)
 			if pkg.IsInitialIdentToken(token) {
 				sc.Unread()
 				id := sc.ScanBareIdent()
@@ -217,7 +232,6 @@ func scanString(cx *parseContext, sc *pkg.Scanner) (string, error) {
 		switch token {
 		case pkg.QUOTE:
 			done = true
-			continue
 		default:
 			buf.WriteString(lit)
 		}
