@@ -1,17 +1,22 @@
 # GoKDL
 
-An implementation of the [kdl](https://kdl.dev/) document language.
+An implementation of the [kdl](https://kdl.dev/) document language in Go.
 
-## TODO
-- Cleanup API
-  - [ ] Put internal things in internal package
-  - [ ] Have minimal API
+## Implementation Status
+- Comments
+  - [x] Line
+  - [x] Multiine
+  - [ ] Slash-dash
+- [x] Node with children
 - [x] Support arbitrary identifiers
-  - Currently only support identifiers containing letters
-- [x] Parse number literals
-- [ ] Add numbers as, well, numbers (and not strings)
-- [ ] Support negative numbers
 - [x] Multiline nodes
-- [ ] Raw string literals
+- Number literals
+  - [x] Integers
+  - [x] Float
+  - [x] Scientific notation
+  - [ ] Negative numbers
+- Strings
+  - [x] Regular strings (double quotes)
+  - [ ] Raw string literals
+  - [ ] Raw string literals with `#`
 - [ ] Support type annotations
-- [ ] Handle slash-dash comments
