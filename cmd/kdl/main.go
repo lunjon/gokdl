@@ -38,7 +38,7 @@ hello \
 	1 2 3 \
 	property="wowk"
 `)
-	doc, err := gokdl.Unmarshal(bs)
+	doc, err := gokdl.Parse(bs)
 	if err != nil {
 		log.Fatal(err)
 	}
