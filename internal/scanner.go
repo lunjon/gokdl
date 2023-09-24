@@ -1,4 +1,4 @@
-package gokdl
+package internal
 
 import (
 	"bufio"
@@ -9,17 +9,17 @@ import (
 	"unicode"
 )
 
-// scanner represents a lexical scanner.
-type scanner struct {
+// Scanner represents a lexical Scanner.
+type Scanner struct {
 	r   *bufio.Reader
 	eof bool
 }
 
-func newScanner(r io.Reader) *scanner {
-	return &scanner{r: bufio.NewReader(r)}
+func NewScanner(r io.Reader) *Scanner {
+	return &Scanner{r: bufio.NewReader(r)}
 }
 
-func (s *scanner) scanLine() {
+func (s *Scanner) ScanLine() {
 	if s.eof {
 		return
 	}
@@ -27,19 +27,19 @@ func (s *scanner) scanLine() {
 }
 
 // scan returns the next token and literal value.
-func (s *scanner) scan() (tok Token, lit string) {
+func (s *Scanner) Scan() (tok Token, lit string) {
 	ch := s.read()
 
 	if unicode.IsSpace(ch) {
-		s.unread()
-		return s.scanWhitespace()
+		s.Unread()
+		return s.ScanWhitespace()
 	} else if unicode.IsDigit(ch) {
-		s.unread()
-		return s.scanNumber()
+		s.Unread()
+		return s.ScanNumber()
 	}
 
 	switch ch {
-	case eof:
+	case EOF_RUNE:
 		return EOF, ""
 	case '"':
 		return QUOTE, string(ch)
@@ -50,7 +50,7 @@ func (s *scanner) scan() (tok Token, lit string) {
 		if next == '/' {
 			return COMMENT_MUL_CLOSE, "*/"
 		}
-		s.unread()
+		s.Unread()
 		return CHAR, string(ch)
 	case '/':
 		next := s.read()
@@ -62,7 +62,7 @@ func (s *scanner) scan() (tok Token, lit string) {
 		case '-':
 			return COMMENT_SD, "/-"
 		default:
-			s.unread()
+			s.Unread()
 			return CHAR, string(ch)
 		}
 	case ';':
@@ -92,15 +92,15 @@ func (s *scanner) scan() (tok Token, lit string) {
 	}
 }
 
-func (s *scanner) scanWhile(pred func(rune) bool) string {
+func (s *Scanner) ScanWhile(pred func(rune) bool) string {
 	var buf bytes.Buffer
 	buf.WriteRune(s.read())
 
 	for {
-		if ch := s.read(); ch == eof {
+		if ch := s.read(); ch == EOF_RUNE {
 			break
 		} else if !pred(ch) {
-			s.unread()
+			s.Unread()
 			break
 		} else {
 			buf.WriteRune(ch)
@@ -110,30 +110,30 @@ func (s *scanner) scanWhile(pred func(rune) bool) string {
 	return buf.String()
 }
 
-func (s *scanner) scanNumber() (Token, string) {
+func (s *Scanner) ScanNumber() (Token, string) {
 	first := s.read()
 	second := s.read()
 
-	if second == eof {
-		s.unread()
+	if second == EOF_RUNE {
+		s.Unread()
 		return NUM, string(first)
 	}
 
 	if second == '.' {
 		// Read scientific notation: 1.234e-42
-		numsAfterDot := s.scanWhile(unicode.IsDigit)
+		numsAfterDot := s.ScanWhile(unicode.IsDigit)
 		if numsAfterDot == "" {
 			return INVALID, ""
 		}
 
-		tokenAfterNums, sAfterNums := s.scan()
+		tokenAfterNums, sAfterNums := s.Scan()
 
 		if tokenAfterNums == CHAR && sAfterNums == "e" {
-			next, ch := s.scan()
+			next, ch := s.Scan()
 			var exp string
 
 			if ch == "-" {
-				exp = s.scanWhile(unicode.IsDigit)
+				exp = s.ScanWhile(unicode.IsDigit)
 				exp = "-" + exp
 			} else if next == NUM {
 				exp = ch
@@ -143,14 +143,14 @@ func (s *scanner) scanNumber() (Token, string) {
 
 			return NUM, fmt.Sprintf("%s.%se%s", string(first), numsAfterDot, exp)
 		} else if tokenAfterNums == WS {
-			s.unread()
+			s.Unread()
 			return NUM, fmt.Sprintf("%s.%s", string(first), numsAfterDot)
 		}
 
 		return INVALID, ""
 	} else if second == 'x' {
 		// Read hexadecimal: 0xdeadbeef
-		lit := s.scanWhile(func(r rune) bool {
+		lit := s.ScanWhile(func(r rune) bool {
 			return hexRunes[r]
 		})
 
@@ -162,7 +162,7 @@ func (s *scanner) scanNumber() (Token, string) {
 		return NUM, fmt.Sprint(n)
 	} else if second == 'b' {
 		// Read binary
-		lit := s.scanWhile(func(r rune) bool {
+		lit := s.ScanWhile(func(r rune) bool {
 			return r == '0' || r == '1'
 		})
 
@@ -173,54 +173,54 @@ func (s *scanner) scanNumber() (Token, string) {
 
 		return NUM, fmt.Sprint(n)
 	} else if unicode.IsSpace(second) {
-		s.unread()
+		s.Unread()
 		return NUM, string(first)
 	}
 
-	s.unread()
-	lit := s.scanWhile(unicode.IsDigit)
+	s.Unread()
+	lit := s.ScanWhile(unicode.IsDigit)
 	return NUM, lit
 }
 
 // Scan while whitespace only.
-func (s *scanner) scanWhitespace() (Token, string) {
-	lit := s.scanWhile(unicode.IsSpace)
+func (s *Scanner) ScanWhitespace() (Token, string) {
+	lit := s.ScanWhile(unicode.IsSpace)
 	return WS, lit
 }
 
 // Scan while non-whitespice.
-func (s *scanner) scanNonWhitespace() string {
-	return s.scanWhile(func(r rune) bool {
+func (s *Scanner) ScanNonWhitespace() string {
+	return s.ScanWhile(func(r rune) bool {
 		return !unicode.IsSpace(r)
 	})
 }
 
 // scanLetters consumes the current rune and all contiguous ident runes.
-func (s *scanner) scanLetters() (Token, string) {
+func (s *Scanner) ScanLetters() (Token, string) {
 	pred := func(r rune) bool {
 		return unicode.IsLetter(r) || r == '_'
 	}
 
-	lit := s.scanWhile(pred)
+	lit := s.ScanWhile(pred)
 	return IDENT, lit
 }
 
-func (s *scanner) scanBareIdent() string {
-	return s.scanWhile(IsIdentifier)
+func (s *Scanner) ScanBareIdent() string {
+	return s.ScanWhile(IsIdentifier)
 }
 
 // Read the next rune from the reader.
 // Returns the rune(0) if an error occurs (or io.EOF is returned).
-func (s *scanner) read() rune {
+func (s *Scanner) read() rune {
 	r, _, err := s.r.ReadRune()
 	if err != nil {
 		s.eof = true
-		return eof
+		return EOF_RUNE
 	}
 	return r
 }
 
 // unread places the previously read rune back on the reader.
-func (s *scanner) unread() {
+func (s *Scanner) Unread() {
 	_ = s.r.UnreadRune()
 }

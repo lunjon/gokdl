@@ -1,8 +1,8 @@
-package gokdl
+package internal
 
 import "unicode"
 
-var eof = rune(0)
+var EOF_RUNE = rune(0)
 
 type Token int
 
