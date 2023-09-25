@@ -61,7 +61,6 @@ func IsIdentifierToken(t Token) bool {
 }
 
 func IsIdentifier(r rune) bool {
-	fmt.Println(string(r))
 	return !nonIdents[r] && !unicode.IsSpace(r)
 }
 

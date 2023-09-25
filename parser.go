@@ -80,10 +80,8 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			nodes = append(nodes, node)
 		default:
 			if pkg.IsInitialIdentToken(token) {
-				fmt.Println("A:", lit)
 				sc.Unread()
 				text := sc.ScanBareIdent()
-				fmt.Println("B:", text)
 
 				node, err := scanNode(cx, sc, text)
 				if err != nil {
@@ -126,8 +124,6 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 	if !pkg.IsAnyOf(next, pkg.EOF, pkg.WS, pkg.SEMICOLON, pkg.CBRACK_CLOSE) {
 		return Node{}, fmt.Errorf("unexpected token in identifier: %s", nextlit)
 	}
-
-	fmt.Println("Next:", nextlit)
 
 	sc.Unread()
 
