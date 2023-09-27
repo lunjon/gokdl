@@ -19,6 +19,88 @@ First line
 Thirdline. */`)
 }
 
+func TestParserSlashdashCommentNode(t *testing.T) {
+	doc := setupAndParse(t, `/-mynode`)
+	nodes := doc.Nodes()
+	if len(nodes) != 0 {
+		t.Fatal("expected nodes to be empty")
+	}
+}
+
+func TestParserSlashdashCommentArg(t *testing.T) {
+	doc := setupAndParse(t, `Node.js /-"arg" 1`)
+	nodes := doc.Nodes()
+	if len(nodes) != 1 {
+		t.Fatal("expected nodes to be 1")
+	}
+
+	args := nodes[0].Args
+	if len(args) != 1 {
+		t.Fatalf("expected args to be 1 but was %d", len(args))
+	}
+
+	if args[0].Value != 1 {
+		t.Fatalf("expected arg value to be 1 but was %v", args[0].Value)
+	}
+}
+
+func TestParserSlashdashCommentProp(t *testing.T) {
+	doc := setupAndParse(t, `Node.js uncommented=true /-properly="arg" 1`)
+	nodes := doc.Nodes()
+	if len(nodes) != 1 {
+		t.Fatal("expected nodes to be 1")
+	}
+
+	args := nodes[0].Args
+	if len(args) != 1 {
+		t.Fatalf("expected args to be 1 but was %d", len(args))
+	}
+
+	if args[0].Value != 1 {
+		t.Fatalf("expected arg value to be 1 but was %v", args[0].Value)
+	}
+
+	props := nodes[0].Props
+	if len(props) != 1 {
+		t.Fatalf("expected props to be 1 but was %d", len(props))
+	}
+
+	if props[0].Value != true {
+		t.Fatalf("expected prop value to be 'true' but was '%v'", props[0].Value)
+	}
+}
+
+func TestParserSlashdashCommentChildren(t *testing.T) {
+	doc := setupAndParse(t, `Node.js uncommented=true  1 /-{
+	childNode
+}`)
+	nodes := doc.Nodes()
+	if len(nodes) != 1 {
+		t.Fatal("expected nodes to be 1")
+	}
+
+	children := nodes[0].Children
+	if len(children) != 0 {
+		t.Fatalf("expected children to be empty but was %d", len(children))
+	}
+}
+
+func TestParserSlashdashCommentNestedChildren(t *testing.T) {
+	doc := setupAndParse(t, `Node.js uncommented=true  1 {
+	/-Ignored 1 2
+	Exists true
+}`)
+	nodes := doc.Nodes()
+	if len(nodes) != 1 {
+		t.Fatal("expected nodes to be 1")
+	}
+
+	children := nodes[0].Children
+	if len(children) != 1 {
+		t.Fatalf("expected children to be 1 but was %d", len(children))
+	}
+}
+
 func TestParserValidNodeIdentifier(t *testing.T) {
 	tests := []struct {
 		testname     string
@@ -176,6 +258,107 @@ func TestParserNodeProp(t *testing.T) {
 	}
 }
 
+func TestParserNodeChildren(t *testing.T) {
+	tests := []struct {
+		testname      string
+		body          string
+		expectedNodes int
+	}{
+		{"single line #1", "Parent { child1 }", 2},
+		{"single line #2", "Parent { child1; child2 }", 3},
+		{"single line #3", "Parent { child1; child2; }", 3},
+		{
+			"nested #1", `Parent {
+	child1; child2
+		}`,
+			3,
+		},
+		{
+			"nested #2", `Parent {
+	child1;
+	child-?
+		}`,
+			3,
+		},
+		{
+			"nested #3", `Parent {
+	child1 {}
+	child-?
+		}`,
+			3,
+		},
+		{
+			"nested #4", `Parent {
+	child1 { child1-A }
+	child-? }`,
+			4,
+		},
+		{
+			"nested #5", `Parent {
+	child1 { child1-A }
+	child-?
+
+	deep-1 {
+		deep-1-2 {
+			/-deep-1-2-3-a
+			deep-1-2-3-b
+			deep-1-2-3-c
+		}
+	}
+}`,
+			8,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			doc := setupAndParse(t, test.body)
+			actual := totalChildren(doc)
+			if actual != test.expectedNodes {
+				t.Fatalf("expected %d total children but was %d", test.expectedNodes, actual)
+			}
+		})
+	}
+
+	doc := setupAndParse(t, `Parent { child-1; child2; child-3 }`)
+	children := doc.nodes[0].Children
+	if len(children) != 3 {
+		t.Fatalf("expected to have 1 child but was %d", len(children))
+	}
+}
+
+func TestParserNodeChildrenSingle(t *testing.T) {
+	doc := setupAndParse(t, `Parent {
+	child
+}`)
+	children := doc.nodes[0].Children
+	if len(children) != 1 {
+		t.Fatalf("expected to have 1 child but was %d", len(children))
+	}
+	if children[0].Name != "child" {
+		t.Fatalf("expected to have name 'child' but was '%s'", children[0].Name)
+	}
+}
+
+func TestParserNodeChildrenMultiple(t *testing.T) {
+	doc := setupAndParse(t, `Parent {
+	child-1; child2;
+	child-3
+}`)
+	children := doc.nodes[0].Children
+	if len(children) != 3 {
+		t.Fatalf("expected to have 1 child but was %d", len(children))
+	}
+}
+
+func TestParserNodeChildrenMultipleSameRow(t *testing.T) {
+	doc := setupAndParse(t, `Parent { child-1; child2; child-3 }`)
+	children := doc.nodes[0].Children
+	if len(children) != 3 {
+		t.Fatalf("expected to have 1 child but was %d", len(children))
+	}
+}
+
 func setup(doc string) *parser {
 	logger := log.New(io.Discard, "", 0)
 	return newParser(logger, []byte(doc))
@@ -188,4 +371,24 @@ func setupAndParse(t *testing.T, doc string) Doc {
 		t.Fatalf("expected no error but was: %s", err)
 	}
 	return d
+}
+
+func recNodeChildrenCount(node Node) int {
+	if len(node.Children) == 0 {
+		return 1
+	}
+
+	total := 1
+	for _, ch := range node.Children {
+		total += recNodeChildrenCount(ch)
+	}
+	return total
+}
+
+func totalChildren(doc Doc) int {
+	total := 0
+	for _, n := range doc.nodes {
+		total += recNodeChildrenCount(n)
+	}
+	return total
 }

@@ -66,7 +66,17 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 				return nil, err
 			}
 		case pkg.COMMENT_SD:
-			panic("todo")
+			// Parse the following content as node and ignore the result
+			nextToken, _ := sc.Scan()
+			if pkg.IsInitialIdentToken(nextToken) {
+				text := sc.ScanBareIdent()
+				if _, err := scanNode(cx, sc, text); err != nil {
+					return nil, fmt.Errorf("expected a node after slash-dash comment: %s", err)
+				}
+			} else {
+				return nil, fmt.Errorf("expected a node after slash-dash comment")
+
+			}
 		case pkg.QUOTE:
 			// Identifier in quotes => parse as string
 			lit, err := scanString(cx, sc)
@@ -132,6 +142,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 	props := []Prop{}
 
 	done := false
+	skip := false
 	for !done {
 		token, lit := sc.Scan()
 		if token == pkg.EOF {
@@ -158,21 +169,32 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				return Node{}, err
 			}
 		case pkg.COMMENT_SD:
-			panic("todo")
+			// We need to continue to parse
+			// and ignore the next result.
+			skip = true
 		case pkg.NUM_INT:
-			n, err := strconv.Atoi(lit)
-			if err != nil {
-				return Node{}, err
+			if !skip {
+				n, err := strconv.Atoi(lit)
+				if err != nil {
+					return Node{}, err
+				}
+				arg := newArg(n, TypeInt)
+				args = append(args, arg)
+
+			} else {
+				skip = false
 			}
-			arg := newArg(n, TypeInt)
-			args = append(args, arg)
 		case pkg.NUM_FLOAT, pkg.NUM_SCI:
-			n, err := strconv.ParseFloat(lit, 64)
-			if err != nil {
-				return Node{}, err
+			if !skip {
+				n, err := strconv.ParseFloat(lit, 64)
+				if err != nil {
+					return Node{}, err
+				}
+				arg := newArg(n, TypeFloat)
+				args = append(args, arg)
+			} else {
+				skip = false
 			}
-			arg := newArg(n, TypeFloat)
-			args = append(args, arg)
 		case pkg.QUOTE:
 			s, err := scanString(cx, sc)
 			if err != nil {
@@ -186,18 +208,34 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				if err != nil {
 					return Node{}, err
 				}
-				props = append(props, prop)
+
+				if !skip {
+					props = append(props, prop)
+				} else {
+					skip = false
+				}
 			} else {
-				sc.Unread()
-				arg := newArg(s, TypeString)
-				args = append(args, arg)
+				if !skip {
+					sc.Unread()
+					arg := newArg(s, TypeString)
+					args = append(args, arg)
+				} else {
+					skip = false
+				}
 			}
 		case pkg.CBRACK_OPEN:
 			ns, err := parseScope(cx, sc, true)
 			if err != nil {
 				return Node{}, err
 			}
-			children = append(children, ns...)
+			if !skip {
+				children = append(children, ns...)
+			} else {
+				skip = false
+			}
+		case pkg.CBRACK_CLOSE:
+			done = true
+			sc.Unread()
 		default:
 			// At this point there are multiple cases that can happen:
 			// - The following value is a literal: null, true, false
@@ -244,7 +282,12 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				if err != nil {
 					return Node{}, err
 				}
-				props = append(props, prop)
+
+				if !skip {
+					props = append(props, prop)
+				} else {
+					skip = false
+				}
 			} else {
 				return Node{}, fmt.Errorf("unexpected token: %s", lit)
 			}
