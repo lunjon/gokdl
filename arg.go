@@ -5,8 +5,19 @@ import (
 	"strconv"
 )
 
+type ArgType string
+
+const (
+	TypeString ArgType = "string"
+	TypeInt    ArgType = "int"
+	TypeFloat  ArgType = "float"
+	TypeBool   ArgType = "boolean"
+	TypeNull   ArgType = "null"
+)
+
 type Arg struct {
-	Value any
+	Value    any
+	typeInfo string
 }
 
 func (a Arg) String() string {
@@ -20,8 +31,9 @@ func newBoolArg(lit string) (Arg, error) {
 	}, err
 }
 
-func newArg(lit string) Arg {
+func newArg(value any, t ArgType) Arg {
 	return Arg{
-		Value: lit,
+		Value:    value,
+		typeInfo: "",
 	}
 }

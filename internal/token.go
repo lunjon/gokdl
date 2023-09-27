@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"unicode"
 )
 
@@ -16,8 +15,10 @@ const (
 
 	// Literals
 	IDENT
-	NUM  // Integers (for now)
-	BOOL // true | false
+	NUM_INT   // Integer
+	NUM_FLOAT // Float
+	NUM_SCI   // Scientific notation
+	BOOL      // true | false
 
 	// Special characters
 	SEMICOLON         // ;
@@ -26,6 +27,7 @@ const (
 	QUOTE             // "
 	EQUAL             // =
 	HYPHEN            // -
+	PLUS              // +
 	COMMENT_LINE      // //
 	COMMENT_MUL_OPEN  // /*
 	COMMENT_MUL_CLOSE // */
@@ -53,7 +55,7 @@ func IsInitialIdentToken(t Token) bool {
 
 func IsIdentifierToken(t Token) bool {
 	switch t {
-	case NUM, CHAR:
+	case NUM_INT, CHAR:
 		return true
 	default:
 		return false
