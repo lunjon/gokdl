@@ -45,7 +45,7 @@ Although it can be used, it is very rough. So I'll work on that when the parsing
 - Comments
   - [x] Line
   - [x] Multiine
-  - [ ] Slash-dash
+  - [x] Slash-dash
 - [x] Node with children
 - [x] Support arbitrary identifiers
 - [x] Multiline nodes
