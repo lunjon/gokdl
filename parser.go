@@ -202,17 +202,16 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			// At this point there are multiple cases that can happen:
 			// - The following value is a literal: null, true, false
 			//   - These should be treated as such
-			// - It the start of a property name
+			// - It is the start of a property name
 			//
-			// All the literals have valid initial identifier tokens;
-			// that is, n(ull), t(rue) and f(alse) can be the start
+			// All the literals have valid initial identifier tokens.
+			// That is, n(ull), t(rue) and f(alse) can be the start
 			// of an identifier and NOT the literals.
 			//
 			// Thus we need to check the following tokens in order
 			// to decide what it is.
 
-			// Check for null
-			{
+			{ // Check literals
 				var value any
 				var t ArgType
 

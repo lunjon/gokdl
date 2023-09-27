@@ -92,7 +92,7 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 			return s.scanNumber(false)
 		}
 
-		token = PLUS
+		token = CHAR
 		str = string(ch)
 	case '*':
 		next := s.read()

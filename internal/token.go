@@ -27,7 +27,6 @@ const (
 	QUOTE             // "
 	EQUAL             // =
 	HYPHEN            // -
-	PLUS              // +
 	COMMENT_LINE      // //
 	COMMENT_MUL_OPEN  // /*
 	COMMENT_MUL_CLOSE // */
