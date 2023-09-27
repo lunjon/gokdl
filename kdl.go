@@ -23,3 +23,13 @@ func Parse(bs []byte) (Doc, error) {
 	parser := newParser(log.New(io.Discard, "", 0), bs)
 	return parser.parse()
 }
+
+type ValueType string
+
+const (
+	TypeString ValueType = "string"
+	TypeInt    ValueType = "int"
+	TypeFloat  ValueType = "float"
+	TypeBool   ValueType = "boolean"
+	TypeNull   ValueType = "null"
+)
