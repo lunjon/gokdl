@@ -1,6 +1,6 @@
 # GoKDL
 
-An implementation of the [kdl](https://kdl.dev/) document language in Go.
+A parser implementation for the [KDL](https://kdl.dev/) document language in Go.
 
 ## Example
 
@@ -16,12 +16,12 @@ import (
 
 func main() {
     bs := []byte(`
-MyNode "string arg" {
-  child-node withprop=1
+MyNode "string arg" myint=1234 awesome=true {
+  child-node 
 }      
 
 // A node with arbitrary name (in quotes)
-"Other node with much cooler name!"
+"Other node with much cooler name!" { Okay; }
 `)
 
     doc, err := gokdl.Parse(bs)
@@ -35,9 +35,9 @@ MyNode "string arg" {
 
 ## API
 
-The generall API for module (including the types Doc, Node, Arg and Prop) is not done at all.
+The generall API for module (including the types Doc, Node, Arg and Prop) is yet to be done
 
-Although it can be used, it is very rough. So I'll work on that when the parsing is more mature.
+Although it can be used, it is very rough.
 
 
 ## Implementation Status
