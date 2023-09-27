@@ -159,8 +159,19 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			}
 		case pkg.COMMENT_SD:
 			panic("todo")
-		case pkg.NUM:
-			arg := newArg(lit)
+		case pkg.NUM_INT:
+			n, err := strconv.Atoi(lit)
+			if err != nil {
+				return Node{}, err
+			}
+			arg := newArg(n, TypeInt)
+			args = append(args, arg)
+		case pkg.NUM_FLOAT, pkg.NUM_SCI:
+			n, err := strconv.ParseFloat(lit, 64)
+			if err != nil {
+				return Node{}, err
+			}
+			arg := newArg(n, TypeFloat)
 			args = append(args, arg)
 		case pkg.QUOTE:
 			s, err := scanString(cx, sc)
@@ -178,18 +189,55 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				props = append(props, prop)
 			} else {
 				sc.Unread()
-				arg := newArg(s)
+				arg := newArg(s, TypeString)
 				args = append(args, arg)
 			}
 		case pkg.CBRACK_OPEN:
-			cx.logger.Println("Beginning to parse child scope")
 			ns, err := parseScope(cx, sc, true)
 			if err != nil {
 				return Node{}, err
 			}
 			children = append(children, ns...)
 		default:
-			cx.logger.Printf("%s: %s", name, lit)
+			// At this point there are multiple cases that can happen:
+			// - The following value is a literal: null, true, false
+			//   - These should be treated as such
+			// - It is the start of a property name
+			//
+			// All the literals have valid initial identifier tokens.
+			// That is, n(ull), t(rue) and f(alse) can be the start
+			// of an identifier and NOT the literals.
+			//
+			// Thus we need to check the following tokens in order
+			// to decide what it is.
+
+			{ // Check literals
+				var value any
+				var t ArgType
+
+				_, next := sc.ScanLetters()
+				next = lit + next
+
+				switch next {
+				case "null":
+					value = nil
+					t = TypeNull
+				case "true":
+					value = true
+					t = TypeBool
+				case "false":
+					value = false
+					t = TypeBool
+				}
+
+				if t != ArgType("") {
+					args = append(args, newArg(value, t))
+					continue
+				}
+
+				sc.Unread()
+			}
+
 			if pkg.IsInitialIdentToken(token) {
 				sc.Unread()
 				id := sc.ScanBareIdent()
@@ -255,7 +303,7 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 		switch token {
 		case pkg.INVALID:
 			return Prop{}, fmt.Errorf("invalid property value")
-		case pkg.NUM:
+		case pkg.NUM_INT:
 			value = lit
 			done = true
 		case pkg.QUOTE:
@@ -266,19 +314,24 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 			value = s
 			done = true
 		default:
-			// Not a number or string => try parse bool
+			// Not a number or string => try parse bool or null
 			sc.Unread()
 			t, letters := sc.ScanLetters()
 			if t != pkg.EOF {
-				b, err := strconv.ParseBool(letters)
-				if err != nil {
-					return Prop{}, err
+				switch letters {
+				case "null":
+					value = nil
+				case "true":
+					value = true
+				case "false":
+					value = false
+				default:
+					return Prop{}, fmt.Errorf("invalid property value")
 				}
-				value = b
+
 				done = true
 			} else {
 				return Prop{}, fmt.Errorf("invalid property value")
-
 			}
 		}
 	}

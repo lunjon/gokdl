@@ -28,27 +28,28 @@ func TestScannerScanWhitespace(t *testing.T) {
 }
 
 func TestScannerScanNumbers(t *testing.T) {
-	// TODO: test with invalid strings
 	tests := []struct {
-		name string
-		str  string
+		name          string
+		str           string
+		expectedToken Token
 	}{
-		{"integer - single digit", "1"},
-		{"integer - multi digit", "12345"},
-		{"integer - neg", "-12345"},
-		{"float - dot", "1.1"},
-		{"float - dot multi", "1.12345"},
-		{"float - scientific (pos exp)", "1.123e12"},
-		{"float - scientific (neg exp)", "1.123e-9"},
-		{"float - scientific neg", "-11.123e9"},
+		{"integer - single digit", "1", NUM_INT},
+		{"integer - multi digit", "12345", NUM_INT},
+		{"integer - neg", "-12345", NUM_INT},
+		{"integer - prefix", "+12345", NUM_INT},
+		{"float - dot", "1.1", NUM_FLOAT},
+		{"float - dot multi", "1.12345", NUM_FLOAT},
+		{"float - scientific (pos exp)", "1.123e12", NUM_SCI},
+		{"float - scientific (neg exp)", "1.123e-9", NUM_SCI},
+		{"float - scientific neg", "-1.123e9", NUM_SCI},
 	}
 
 	for _, test := range tests {
 		sc := setup(test.str)
 		t.Run(test.name, func(t *testing.T) {
 			token, _ := sc.Scan()
-			if token != NUM {
-				log.Fatalf("expected token to be %d but was %d", NUM, token)
+			if token != test.expectedToken {
+				log.Fatalf("expected token to be %d but was %d", test.expectedToken, token)
 			}
 		})
 	}
