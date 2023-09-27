@@ -213,7 +213,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 
 			{ // Check literals
 				var value any
-				var t ArgType
+				var t ValueType
 
 				_, next := sc.ScanLetters()
 				next = lit + next
@@ -230,7 +230,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 					t = TypeBool
 				}
 
-				if t != ArgType("") {
+				if t != ValueType("") {
 					args = append(args, newArg(value, t))
 					continue
 				}
@@ -239,9 +239,8 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			}
 
 			if pkg.IsInitialIdentToken(token) {
-				sc.Unread()
 				id := sc.ScanBareIdent()
-				prop, err := scanProp(cx, sc, id)
+				prop, err := scanProp(cx, sc, lit+id)
 				if err != nil {
 					return Node{}, err
 				}
@@ -294,6 +293,8 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 
 	done := false
 	var value any
+	var valueType ValueType
+
 	for !done {
 		token, lit := sc.Scan()
 		if token == pkg.EOF {
@@ -304,7 +305,20 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 		case pkg.INVALID:
 			return Prop{}, fmt.Errorf("invalid property value")
 		case pkg.NUM_INT:
-			value = lit
+			n, err := strconv.Atoi(lit)
+			if err != nil {
+				return Prop{}, err
+			}
+			value = n
+			valueType = TypeInt
+			done = true
+		case pkg.NUM_FLOAT, pkg.NUM_SCI:
+			n, err := strconv.ParseFloat(lit, 64)
+			if err != nil {
+				return Prop{}, err
+			}
+			value = n
+			valueType = TypeFloat
 			done = true
 		case pkg.QUOTE:
 			s, err := scanString(cx, sc)
@@ -320,11 +334,14 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 			if t != pkg.EOF {
 				switch letters {
 				case "null":
+					valueType = TypeNull
 					value = nil
 				case "true":
 					value = true
+					valueType = TypeBool
 				case "false":
 					value = false
+					valueType = TypeBool
 				default:
 					return Prop{}, fmt.Errorf("invalid property value")
 				}
@@ -339,7 +356,8 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 	cx.logger.Printf("Succesfully scanned property: %s=%v", name, value)
 
 	return Prop{
-		Name:  name,
-		Value: value,
+		Name:      name,
+		Value:     value,
+		valueType: valueType,
 	}, nil
 }
