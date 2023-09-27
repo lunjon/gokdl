@@ -1,6 +1,6 @@
 # GoKDL
 
-An parser implementation for the [kdl](https://kdl.dev/) document language in Go.
+A parser implementation for the [KDL](https://kdl.dev/) document language in Go.
 
 ## Example
 
