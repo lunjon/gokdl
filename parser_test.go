@@ -13,10 +13,25 @@ func TestParserLineComment(t *testing.T) {
 }
 
 func TestParserMultilineComment(t *testing.T) {
-	_ = setupAndParse(t, `/*
-First line
-/Second line
-Thirdline. */`)
+	tests := []struct {
+		testname string
+		body     string
+	}{
+		{"single line", "/* comment */"},
+		{"single line - two comments", "/* comment */ /* another */"},
+		{
+			"multiple lines", `/*
+comment
+another
+*/`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			_ = setupAndParse(t, test.body)
+		})
+	}
 }
 
 func TestParserSlashdashCommentNode(t *testing.T) {
@@ -161,8 +176,10 @@ func TestParserNodeArgs(t *testing.T) {
 		expectedArgValue any
 	}{
 		{"integer", "NodeName 1", "NodeName", 1},
-		{"float", "NodeName 1.234", "NodeName", 1.234},
-		{"string", `ohmy "my@value"`, "ohmy", "my@value"},
+		{"float1", "NodeName 1.234", "NodeName", 1.234},
+		{"float2", "NodeName 1234.5678", "NodeName", 1234.5678},
+		{"string1", `ohmy "my@value"`, "ohmy", "my@value"},
+		{"string2", `ohmy "TODO: $1"`, "ohmy", "TODO: $1"},
 		{"null", `Nullify null`, "Nullify", nil},
 		{"true", `MyBool true`, "MyBool", true},
 		{"false", `MyBool false`, "MyBool", false},
@@ -176,7 +193,7 @@ func TestParserNodeArgs(t *testing.T) {
 
 			// Assert
 			if err != nil {
-				t.Fatal("expected error but was nil")
+				t.Fatalf("expected no error but was: %s", err)
 			}
 
 			nodes := doc.Nodes()
@@ -197,6 +214,32 @@ func TestParserNodeArgs(t *testing.T) {
 
 			if arg.Value != test.expectedArgValue {
 				t.Fatalf("expected value to be %v but was %v", test.expectedArgValue, arg.Value)
+			}
+		})
+	}
+}
+
+func TestParserNodeArgsInvalid(t *testing.T) {
+	// Arrange
+	tests := []struct {
+		testname string
+		body     string
+	}{
+		{"integer followed by letter", "NodeName 1a"},
+		{"bare identifier", "NodeName nodename"},
+		{"unexpected slash", "NodeName /"},
+		{"unexpected dot", "NodeName ."},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			// Act
+			parser := setup(test.body)
+			_, err := parser.parse()
+
+			// Assert
+			if err == nil {
+				t.Fatal("expected error but was nil")
 			}
 		})
 	}
@@ -258,6 +301,34 @@ func TestParserNodeProp(t *testing.T) {
 	}
 }
 
+func TestParserNodePropInvalid(t *testing.T) {
+	// Arrange
+	tests := []struct {
+		testname string
+		body     string
+	}{
+		{"missing value", "NodeName myprop= "},
+		{"identifier value", "NodeName myprop=identifier"},
+		{"unterminated string", `NodeName myprop="opened`},
+		{"parenthesis", `NodeName myprop=()`},
+		{"misc1", `NodeName myprop=123a`},
+		{"misc2", `NodeName myprop=1.23--`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			// Act
+			parser := setup(test.body)
+			_, err := parser.parse()
+
+			// Assert
+			if err == nil {
+				t.Fatal("expected error but was nil")
+			}
+		})
+	}
+}
+
 func TestParserNodeChildren(t *testing.T) {
 	tests := []struct {
 		testname      string
@@ -267,6 +338,8 @@ func TestParserNodeChildren(t *testing.T) {
 		{"single line #1", "Parent { child1 }", 2},
 		{"single line #2", "Parent { child1; child2 }", 3},
 		{"single line #3", "Parent { child1; child2; }", 3},
+		{"single line #4", "Parent { child1; /-child2; }", 2},
+		{"single line #5", "Parent { /*child1*/ child2; }", 2},
 		{
 			"nested #1", `Parent {
 	child1; child2

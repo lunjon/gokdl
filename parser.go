@@ -75,7 +75,6 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 				}
 			} else {
 				return nil, fmt.Errorf("expected a node after slash-dash comment")
-
 			}
 		case pkg.QUOTE:
 			// Identifier in quotes => parse as string
@@ -90,10 +89,8 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			nodes = append(nodes, node)
 		default:
 			if pkg.IsInitialIdentToken(token) {
-				sc.Unread()
 				text := sc.ScanBareIdent()
-
-				node, err := scanNode(cx, sc, text)
+				node, err := scanNode(cx, sc, lit+text)
 				if err != nil {
 					cx.logger.Println("Error scanning node:", text, err)
 					return nil, err
@@ -157,7 +154,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 		case pkg.SEMICOLON:
 			done = true
 		case pkg.WS:
-			// Newline (or semicolon) ends a node
+			// FIXME: handle other types of newline control characters (see the spec)
 			if strings.HasSuffix(lit, "\n") || strings.HasPrefix(lit, "\n") {
 				done = true
 			}
@@ -180,7 +177,6 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				}
 				arg := newArg(n, TypeInt)
 				args = append(args, arg)
-
 			} else {
 				skip = false
 			}
@@ -190,6 +186,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				if err != nil {
 					return Node{}, err
 				}
+
 				arg := newArg(n, TypeFloat)
 				args = append(args, arg)
 			} else {
@@ -258,7 +255,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 
 				switch next {
 				case "null":
-					value = nil
+					value = nil // Default for any...
 					t = TypeNull
 				case "true":
 					value = true
