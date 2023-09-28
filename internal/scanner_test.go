@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"log"
 	"strings"
 	"testing"
 )
@@ -21,7 +20,7 @@ func TestScannerScanWhitespace(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			token, _ := sc.Scan()
 			if token != WS {
-				log.Fatalf("expected token to be %d but was %d", WS, token)
+				t.Fatalf("expected token to be %d but was %d", WS, token)
 			}
 		})
 	}
@@ -49,7 +48,7 @@ func TestScannerScanNumbers(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			token, _ := sc.Scan()
 			if token != test.expectedToken {
-				log.Fatalf("expected token to be %d but was %d", test.expectedToken, token)
+				t.Fatalf("expected token to be %d but was %d", test.expectedToken, token)
 			}
 		})
 	}

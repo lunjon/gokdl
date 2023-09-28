@@ -45,7 +45,8 @@ const (
 	RAWSTR_HASH_CLOSE // "#[...]
 
 	// Other characters
-	CHAR
+	CHAR  // Single character
+	CHARS // Stream of characters
 )
 
 func IsInitialIdentToken(t Token) bool {

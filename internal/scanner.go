@@ -186,25 +186,44 @@ func (s *Scanner) ScanWhile(pred func(rune) bool) string {
 // scanNumber tries to scan a number in any of the supported formats.
 // Use `neg` to indicate that the number was prefixed with a hyphen.
 func (s *Scanner) scanNumber(neg bool) (Token, string) {
-	first := s.read()
-	second := s.read()
-	final := func(s string) string {
-		if neg {
-			return "-" + s
-		}
-		return s
+	start := s.ScanWhile(unicode.IsDigit)
+	next := s.read()
+	if neg {
+		start = "-" + start
 	}
 
-	if second == EOF_RUNE {
+	if next == EOF_RUNE {
+		return s.setAndReturn(NUM_INT, start)
+	}
+
+	comp := start + string(next)
+
+	if strings.HasSuffix(comp, ".") {
+		return s.scanFloat(comp)
+	} else if comp == "0x" {
+		return s.scanHex()
+	} else if comp == "0b" {
+		return s.scanBinary()
+	} else if unicode.IsSpace(next) || !unicode.IsDigit(next) {
 		s.r.UnreadRune()
-		return s.setAndReturn(NUM_INT, final(string(first)))
+		return s.setAndReturn(NUM_INT, start)
 	}
 
-	if second == '.' {
-		// Read scientific notation: 1.234e-42
+	// Read as integer
+	s.r.UnreadRune()
+	lit := s.ScanWhile(func(r rune) bool {
+		return unicode.IsDigit(r) || r == '_'
+	})
+
+	return s.setAndReturn(NUM_INT, strings.ReplaceAll(lit, "_", ""))
+}
+
+func (s *Scanner) scanFloat(start string) (Token, string) {
+	// Try scientific notation: 1.234e-42
+	if len(strings.TrimPrefix(start, "-")) == 2 {
 		numsAfterDot := s.ScanWhile(unicode.IsDigit)
 		if numsAfterDot == "" {
-			return s.setAndReturn(INVALID, "")
+			return s.setAndReturn(CHARS, start)
 		}
 
 		tokenAfterNums, sAfterNums := s.Scan()
@@ -219,54 +238,55 @@ func (s *Scanner) scanNumber(neg bool) (Token, string) {
 			} else if next == NUM_INT {
 				exp = ch
 			} else {
-				return INVALID, ""
+				return CHARS, start + numsAfterDot + sAfterNums + ch
 			}
 
-			num := fmt.Sprintf("%s.%se%s", string(first), numsAfterDot, exp)
-			return s.setAndReturn(NUM_SCI, final(num))
+			num := fmt.Sprintf("%s%se%s", start, numsAfterDot, exp)
+			return s.setAndReturn(NUM_SCI, num)
+		} else if tokenAfterNums == NUM_INT {
+			num := start + numsAfterDot + sAfterNums
+			return s.setAndReturn(NUM_FLOAT, num)
 		} else if tokenAfterNums == WS || tokenAfterNums == EOF {
 			s.Unread()
-			num := fmt.Sprintf("%s.%s", string(first), numsAfterDot)
-			return s.setAndReturn(NUM_FLOAT, final(num))
+			return s.setAndReturn(NUM_FLOAT, start+numsAfterDot)
 		}
 
-		return s.setAndReturn(INVALID, "")
-	} else if second == 'x' {
-		// Read hexadecimal: 0xdeadbeef
-		lit := s.ScanWhile(func(r rune) bool {
-			return hexRunes[r]
-		})
-
-		n, err := strconv.ParseInt(lit, 16, 64)
-		if err != nil {
-			return s.setAndReturn(INVALID, "")
-		}
-
-		return s.setAndReturn(NUM_INT, final(fmt.Sprint(n)))
-	} else if second == 'b' {
-		// Read binary
-		lit := s.ScanWhile(func(r rune) bool {
-			return r == '0' || r == '1'
-		})
-
-		n, err := strconv.ParseInt(lit, 2, 64)
-		if err != nil {
-			return s.setAndReturn(INVALID, "")
-		}
-
-		return s.setAndReturn(NUM_INT, final(fmt.Sprint(n)))
-	} else if unicode.IsSpace(second) {
-		s.r.UnreadRune()
-		return s.setAndReturn(NUM_INT, final(string(first)))
 	}
 
-	// Read as integer
-	s.r.UnreadRune()
+	numsAfterDot := s.ScanWhile(unicode.IsDigit)
+	if numsAfterDot == "" {
+		return s.setAndReturn(CHARS, start)
+	}
+
+	return s.setAndReturn(NUM_FLOAT, start+numsAfterDot)
+}
+
+func (s *Scanner) scanBinary() (Token, string) {
+	// Read binary
 	lit := s.ScanWhile(func(r rune) bool {
-		return unicode.IsDigit(r) || r == '_'
+		return r == '0' || r == '1'
 	})
 
-	return s.setAndReturn(NUM_INT, final(strings.ReplaceAll(lit, "_", "")))
+	n, err := strconv.ParseInt(lit, 2, 64)
+	if err != nil {
+		return s.setAndReturn(CHARS, "0b"+lit)
+	}
+
+	return s.setAndReturn(NUM_INT, fmt.Sprint(n))
+}
+
+func (s *Scanner) scanHex() (Token, string) {
+	// Read hexadecimal: 0xdeadbeef
+	lit := s.ScanWhile(func(r rune) bool {
+		return hexRunes[r]
+	})
+
+	n, err := strconv.ParseInt(lit, 16, 64)
+	if err != nil {
+		return s.setAndReturn(CHARS, "0x"+lit)
+	}
+
+	return s.setAndReturn(NUM_INT, fmt.Sprint(n))
 }
 
 // Scan while whitespace only.
