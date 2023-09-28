@@ -188,28 +188,25 @@ func (s *Scanner) ScanWhile(pred func(rune) bool) string {
 func (s *Scanner) scanNumber(neg bool) (Token, string) {
 	start := s.ScanWhile(unicode.IsDigit)
 	next := s.read()
-	final := func(s string) string {
-		if neg {
-			return "-" + s
-		}
-		return s
+	if neg {
+		start = "-" + start
 	}
 
 	if next == EOF_RUNE {
-		return s.setAndReturn(NUM_INT, final(start))
+		return s.setAndReturn(NUM_INT, start)
 	}
 
 	comp := start + string(next)
 
 	if strings.HasSuffix(comp, ".") {
-		return s.scanFloat(comp, neg)
+		return s.scanFloat(comp)
 	} else if comp == "0x" {
 		return s.scanHex()
 	} else if comp == "0b" {
 		return s.scanBinary()
 	} else if unicode.IsSpace(next) || !unicode.IsDigit(next) {
 		s.r.UnreadRune()
-		return s.setAndReturn(NUM_INT, final(start))
+		return s.setAndReturn(NUM_INT, start)
 	}
 
 	// Read as integer
@@ -218,19 +215,12 @@ func (s *Scanner) scanNumber(neg bool) (Token, string) {
 		return unicode.IsDigit(r) || r == '_'
 	})
 
-	return s.setAndReturn(NUM_INT, final(strings.ReplaceAll(lit, "_", "")))
+	return s.setAndReturn(NUM_INT, strings.ReplaceAll(lit, "_", ""))
 }
 
-func (s *Scanner) scanFloat(start string, neg bool) (Token, string) {
-	final := func(s string) string {
-		if neg {
-			return "-" + s
-		}
-		return s
-	}
-
+func (s *Scanner) scanFloat(start string) (Token, string) {
 	// Try scientific notation: 1.234e-42
-	if len(start) == 2 {
+	if len(strings.TrimPrefix(start, "-")) == 2 {
 		numsAfterDot := s.ScanWhile(unicode.IsDigit)
 		if numsAfterDot == "" {
 			return s.setAndReturn(CHARS, start)
@@ -252,14 +242,13 @@ func (s *Scanner) scanFloat(start string, neg bool) (Token, string) {
 			}
 
 			num := fmt.Sprintf("%s%se%s", start, numsAfterDot, exp)
-			return s.setAndReturn(NUM_SCI, final(num))
+			return s.setAndReturn(NUM_SCI, num)
 		} else if tokenAfterNums == NUM_INT {
 			num := start + numsAfterDot + sAfterNums
-			return s.setAndReturn(NUM_FLOAT, final(num))
+			return s.setAndReturn(NUM_FLOAT, num)
 		} else if tokenAfterNums == WS || tokenAfterNums == EOF {
 			s.Unread()
-			// num := fmt.Sprintf("%s.%s", start, numsAfterDot)
-			return s.setAndReturn(NUM_FLOAT, final(start+numsAfterDot))
+			return s.setAndReturn(NUM_FLOAT, start+numsAfterDot)
 		}
 
 	}
