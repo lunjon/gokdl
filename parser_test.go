@@ -230,9 +230,11 @@ func TestParserNodeArgsTypeAnnotationsInvalid(t *testing.T) {
 		{"type annotation for invalid literal: true", "NodeName (u8)true"},
 		{"type annotation for invalid literal: false", "NodeName (u8)false"},
 		{"u8 for type string", `NodeName (u8)"value"`},
-		// {"u8 whitespace between", "NodeName (u8) 1", 1, "u8"},
-		// {"float", "NodeName (float)1.234", 1.234, "float"},
-		// {"string", `NodeName (string)"mystring"`, "mystring", "string"},
+		{"uncloses paranthesis", `NodeName (string"value"`},
+		{"integer for type float", "NodeName (u16)12.456"},
+		{"float for type integer", "NodeName (f64)12"},
+		{"negative for unsigned integer", "NodeName (u64)-12"},
+		{"overflow for u8", "NodeName (u8)1024"},
 	}
 
 	for _, test := range tests {
@@ -314,6 +316,49 @@ func TestParserNodePropInvalid(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error but was nil")
 			}
+		})
+	}
+}
+
+func TestParserNodePropTypeAnnotation(t *testing.T) {
+	// Arrange
+	nodeName := "NodeName"
+	propName := "myprop"
+	tests := []struct {
+		testname               string
+		body                   string
+		expectedValue          any
+		expectedTypeAnnot      TypeAnnotation
+		expectedValueTypeAnnot TypeAnnotation
+	}{
+		{"integer value - type annotation on arg", "NodeName myprop=(i64)1", int64(1), noTypeAnnot, I64},
+		{"integer value - type annotation on prop", "NodeName (author)myprop=1", int64(1), TypeAnnotation("author"), noTypeAnnot},
+		{"integer value - type annotation on prop and arg", "NodeName (author)myprop=(i64)1", int64(1), TypeAnnotation("author"), I64},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			parser := setup(test.body)
+			// Act
+			doc, err := parser.parse()
+
+			// Assert
+			require.NoError(t, err)
+
+			nodes := doc.Nodes()
+			require.Len(t, nodes, 1)
+
+			node := nodes[0]
+			require.Equal(t, nodeName, node.Name)
+
+			props := node.Props
+			require.Len(t, props, 1)
+			prop := props[0]
+
+			require.Equal(t, propName, prop.Name)
+			require.Equal(t, test.expectedValue, prop.Value)
+			require.Equal(t, test.expectedTypeAnnot, prop.TypeAnnot)
+			require.Equal(t, test.expectedValueTypeAnnot, prop.ValueTypeAnnot)
 		})
 	}
 }
