@@ -6,8 +6,8 @@ import (
 )
 
 type Arg struct {
-	Value     any
-	valueType ValueType
+	Value          any
+	TypeAnnotation TypeAnnotation
 }
 
 func (a Arg) String() string {
@@ -21,9 +21,33 @@ func newBoolArg(lit string) (Arg, error) {
 	}, err
 }
 
-func newArg(value any, t ValueType) Arg {
+func newArg(value any, ta TypeAnnotation) Arg {
 	return Arg{
-		Value:     value,
-		valueType: t,
+		Value:          value,
+		TypeAnnotation: ta,
 	}
+}
+
+func newStringArg(value, typeAnnot string) (Arg, error) {
+	val, err := parseStringValue(value, typeAnnot)
+	return Arg{
+		Value:          val,
+		TypeAnnotation: TypeAnnotation(typeAnnot),
+	}, err
+}
+
+func newIntArg(value, typeAnnot string) (Arg, error) {
+	val, err := parseIntValue(value, typeAnnot)
+	return Arg{
+		Value:          val,
+		TypeAnnotation: TypeAnnotation(typeAnnot),
+	}, err
+}
+
+func newFloatArg(value, typeAnnot string) (Arg, error) {
+	val, err := parseFloatValue(value, typeAnnot)
+	return Arg{
+		Value:          val,
+		TypeAnnotation: TypeAnnotation(typeAnnot),
+	}, err
 }
