@@ -3,16 +3,22 @@ package gokdl
 import (
 	"bytes"
 	"fmt"
-	pkg "github.com/lunjon/gokdl/internal"
 	"log"
-	"strconv"
 	"strings"
+	"unicode"
+
+	pkg "github.com/lunjon/gokdl/internal"
 )
 
 type parseContext struct {
 	logger *log.Logger
 }
 
+// The type responsible for parsing the documents.
+// The parser relies on the Scanner (internal) for
+// parsing.
+//
+// Specification: https://github.com/kdl-org/kdl/blob/main/SPEC.md
 type parser struct {
 	sc     *pkg.Scanner
 	logger *log.Logger
@@ -38,9 +44,10 @@ func (p *parser) parse() (Doc, error) {
 	}, err
 }
 
+// Parses a root or child scope (inside a node).
 func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error) {
-	nodes := []Node{}
-	done := false
+	nodes := []Node{} // The nodes accumulated in this scope
+	done := false     // When true, parsing of the scope (root or children) is done
 
 	for !done {
 		token, lit := sc.Scan()
@@ -78,7 +85,7 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			}
 		case pkg.QUOTE:
 			// Identifier in quotes => parse as string
-			lit, err := scanString(cx, sc)
+			lit, err := scanString(cx, sc, "")
 			if err != nil {
 				return nil, err
 			}
@@ -139,14 +146,18 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 	props := []Prop{}
 
 	done := false
-	skip := false
+	skip := false // Used with slash-dash comments
+
+	typeAnnotation := ""
 	for !done {
 		token, lit := sc.Scan()
 		if token == pkg.EOF {
 			break
 		}
 
-		cx.logger.Println(token, lit)
+		if typeAnnotation != "" && pkg.IsAnyOf(token, pkg.BACKSLASH, pkg.SEMICOLON, pkg.CBRACK_OPEN) {
+			return Node{}, fmt.Errorf("unexpected type annotation")
+		}
 
 		switch token {
 		case pkg.BACKSLASH:
@@ -166,73 +177,84 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				return Node{}, err
 			}
 		case pkg.COMMENT_SD:
-			// We need to continue to parse
-			// and ignore the next result.
+			// We need to continue to parse and ignore the next result.
 			skip = true
+			// typeAnnotation = ""
 		case pkg.NUM_INT:
-			if !skip {
-				n, err := strconv.Atoi(lit)
-				if err != nil {
-					return Node{}, err
-				}
-				arg := newArg(n, TypeInt)
-				args = append(args, arg)
-			} else {
+			if skip {
 				skip = false
+				typeAnnotation = ""
+				continue
 			}
-		case pkg.NUM_FLOAT, pkg.NUM_SCI:
-			if !skip {
-				n, err := strconv.ParseFloat(lit, 64)
-				if err != nil {
-					return Node{}, err
-				}
 
-				arg := newArg(n, TypeFloat)
-				args = append(args, arg)
-			} else {
-				skip = false
+			arg, err := newIntArg(lit, typeAnnotation)
+			if err != nil {
+				return Node{}, err
 			}
+			args = append(args, arg)
+			typeAnnotation = ""
+		case pkg.NUM_FLOAT, pkg.NUM_SCI:
+			if skip {
+				skip = false
+				typeAnnotation = ""
+				continue
+			}
+
+			arg, err := newFloatArg(lit, typeAnnotation)
+			if err != nil {
+				return Node{}, err
+			}
+
+			args = append(args, arg)
+			typeAnnotation = ""
 		case pkg.QUOTE:
-			s, err := scanString(cx, sc)
+			s, err := scanString(cx, sc, typeAnnotation)
 			if err != nil {
 				return Node{}, err
 			}
 
 			nextToken, _ := sc.Scan()
 			if nextToken == pkg.EQUAL {
-				sc.Unread()
-				prop, err := scanProp(cx, sc, s)
+				prop, err := scanProp(cx, sc, s, typeAnnotation)
 				if err != nil {
 					return Node{}, err
 				}
 
 				if !skip {
 					props = append(props, prop)
-				} else {
-					skip = false
 				}
+				skip = false
 			} else {
 				if !skip {
 					sc.Unread()
-					arg := newArg(s, TypeString)
+					arg := newArg(s, TypeAnnotation(typeAnnotation))
 					args = append(args, arg)
-				} else {
-					skip = false
 				}
+
+				skip = false
 			}
+
+			typeAnnotation = ""
 		case pkg.CBRACK_OPEN:
 			ns, err := parseScope(cx, sc, true)
 			if err != nil {
 				return Node{}, err
 			}
+
 			if !skip {
 				children = append(children, ns...)
-			} else {
-				skip = false
 			}
+
+			skip = false
 		case pkg.CBRACK_CLOSE:
 			done = true
-			sc.Unread()
+			// sc.Unread()
+		case pkg.PAREN_OPEN:
+			annot, err := scanTypeAnnotation(cx, sc)
+			if err != nil {
+				return Node{}, err
+			}
+			typeAnnotation = annot
 		default:
 			// At this point there are multiple cases that can happen:
 			// - The following value is a literal: null, true, false
@@ -248,7 +270,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 
 			{ // Check literals
 				var value any
-				var t ValueType
+				var ok bool
 
 				_, next := sc.ScanLetters()
 				next = lit + next
@@ -256,35 +278,46 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 				switch next {
 				case "null":
 					value = nil // Default for any...
-					t = TypeNull
+					ok = true
 				case "true":
 					value = true
-					t = TypeBool
+					ok = true
 				case "false":
 					value = false
-					t = TypeBool
+					ok = true
 				}
 
-				if t != ValueType("") {
-					args = append(args, newArg(value, t))
+				if ok {
+					if typeAnnotation != "" {
+						return Node{}, fmt.Errorf("unexpected type annotation")
+					}
+
+					if !skip {
+						args = append(args, newArg(value, ""))
+						skip = false
+					}
 					continue
+				} else {
+					sc.Unread()
 				}
-
-				sc.Unread()
 			}
 
 			if pkg.IsInitialIdentToken(token) {
 				id := sc.ScanBareIdent()
-				prop, err := scanProp(cx, sc, lit+id)
+				next, _ := sc.Scan()
+				if next != pkg.EQUAL {
+					return Node{}, fmt.Errorf("unexpected identifier")
+				}
+
+				prop, err := scanProp(cx, sc, lit+id, typeAnnotation)
 				if err != nil {
 					return Node{}, err
 				}
 
 				if !skip {
 					props = append(props, prop)
-				} else {
-					skip = false
 				}
+				skip = false
 			} else {
 				return Node{}, fmt.Errorf("unexpected token: %s", lit)
 			}
@@ -301,7 +334,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 	}, nil
 }
 
-func scanString(cx *parseContext, sc *pkg.Scanner) (string, error) {
+func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, error) {
 	cx.logger.Println("Scanning string literal")
 
 	buf := strings.Builder{}
@@ -320,20 +353,16 @@ func scanString(cx *parseContext, sc *pkg.Scanner) (string, error) {
 		}
 	}
 
-	return buf.String(), nil
+	return parseStringValue(buf.String(), typeAnnot)
 }
 
-func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
+func scanProp(cx *parseContext, sc *pkg.Scanner, name, typeAnnotation string) (Prop, error) {
 	cx.logger.Println("Scanning node property:", name)
-
-	tok, _ := sc.Scan()
-	if tok != pkg.EQUAL {
-		return Prop{}, fmt.Errorf("invalid node property: %s: expected '=' after identifier", name)
-	}
+	_, _ = sc.ScanWhitespace()
 
 	done := false
 	var value any
-	var valueType ValueType
+	var valueTypeAnnot string
 
 	for !done {
 		token, lit := sc.Scan()
@@ -345,28 +374,33 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 		case pkg.INVALID:
 			return Prop{}, fmt.Errorf("invalid property value")
 		case pkg.NUM_INT:
-			n, err := strconv.Atoi(lit)
+			n, err := parseIntValue(lit, valueTypeAnnot)
 			if err != nil {
 				return Prop{}, err
 			}
 			value = n
-			valueType = TypeInt
 			done = true
 		case pkg.NUM_FLOAT, pkg.NUM_SCI:
-			n, err := strconv.ParseFloat(lit, 64)
+			n, err := parseFloatValue(lit, valueTypeAnnot)
 			if err != nil {
 				return Prop{}, err
 			}
 			value = n
-			valueType = TypeFloat
 			done = true
 		case pkg.QUOTE:
-			s, err := scanString(cx, sc)
+			s, err := scanString(cx, sc, valueTypeAnnot)
 			if err != nil {
 				return Prop{}, err
 			}
 			value = s
 			done = true
+		case pkg.PAREN_OPEN:
+			t, err := scanTypeAnnotation(cx, sc)
+			if err != nil {
+				return Prop{}, err
+			}
+
+			valueTypeAnnot = t
 		default:
 			// Not a number or string => try parse bool or null
 			sc.Unread()
@@ -374,16 +408,17 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 			if t != pkg.EOF {
 				switch letters {
 				case "null":
-					valueType = TypeNull
 					value = nil
 				case "true":
 					value = true
-					valueType = TypeBool
 				case "false":
 					value = false
-					valueType = TypeBool
 				default:
 					return Prop{}, fmt.Errorf("invalid property value")
+				}
+
+				if valueTypeAnnot != "" {
+					return Prop{}, fmt.Errorf("unexpected type annotation")
 				}
 
 				done = true
@@ -396,8 +431,27 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name string) (Prop, error) {
 	cx.logger.Printf("Succesfully scanned property: %s=%v", name, value)
 
 	return Prop{
-		Name:      name,
-		Value:     value,
-		valueType: valueType,
+		Name:           name,
+		TypeAnnot:      TypeAnnotation(typeAnnotation),
+		Value:          value,
+		ValueTypeAnnot: TypeAnnotation(valueTypeAnnot),
 	}, nil
+}
+
+func scanTypeAnnotation(cx *parseContext, sc *pkg.Scanner) (string, error) {
+	annot := sc.ScanWhile(func(r rune) bool {
+		return unicode.In(r, unicode.Digit, unicode.Letter)
+	})
+
+	next, _ := sc.Scan()
+	if next != pkg.PAREN_CLOSE {
+		return "", fmt.Errorf("unclosed type annotation")
+	}
+
+	annot = strings.TrimSpace(annot)
+	if annot == "" {
+		return "", fmt.Errorf("invalid type annotation: empty")
+	}
+
+	return annot, nil
 }

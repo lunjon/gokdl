@@ -4,6 +4,8 @@ import (
 	"io"
 	"log"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestParserLineComment(t *testing.T) {
@@ -43,46 +45,30 @@ func TestParserSlashdashCommentNode(t *testing.T) {
 }
 
 func TestParserSlashdashCommentArg(t *testing.T) {
+	// Arrange & Act
 	doc := setupAndParse(t, `Node.js /-"arg" 1`)
+
+	// Assert
 	nodes := doc.Nodes()
-	if len(nodes) != 1 {
-		t.Fatal("expected nodes to be 1")
-	}
-
+	require.Len(t, nodes, 1)
 	args := nodes[0].Args
-	if len(args) != 1 {
-		t.Fatalf("expected args to be 1 but was %d", len(args))
-	}
-
-	if args[0].Value != 1 {
-		t.Fatalf("expected arg value to be 1 but was %v", args[0].Value)
-	}
+	require.Len(t, args, 1)
+	require.Equal(t, int64(1), args[0].Value)
 }
 
 func TestParserSlashdashCommentProp(t *testing.T) {
 	doc := setupAndParse(t, `Node.js uncommented=true /-properly="arg" 1`)
 	nodes := doc.Nodes()
-	if len(nodes) != 1 {
-		t.Fatal("expected nodes to be 1")
-	}
+	require.Len(t, nodes, 1)
 
 	args := nodes[0].Args
-	if len(args) != 1 {
-		t.Fatalf("expected args to be 1 but was %d", len(args))
-	}
-
-	if args[0].Value != 1 {
-		t.Fatalf("expected arg value to be 1 but was %v", args[0].Value)
-	}
+	require.Len(t, args, 1)
+	require.Equal(t, int64(1), args[0].Value)
 
 	props := nodes[0].Props
-	if len(props) != 1 {
-		t.Fatalf("expected props to be 1 but was %d", len(props))
-	}
+	require.Len(t, props, 1)
 
-	if props[0].Value != true {
-		t.Fatalf("expected prop value to be 'true' but was '%v'", props[0].Value)
-	}
+	require.Equal(t, true, props[0].Value)
 }
 
 func TestParserSlashdashCommentChildren(t *testing.T) {
@@ -175,7 +161,7 @@ func TestParserNodeArgs(t *testing.T) {
 		expectedNodeName string
 		expectedArgValue any
 	}{
-		{"integer", "NodeName 1", "NodeName", 1},
+		{"integer", "NodeName 1", "NodeName", int64(1)},
 		{"float1", "NodeName 1.234", "NodeName", 1.234},
 		{"float2", "NodeName 1234.5678", "NodeName", 1234.5678},
 		{"string1", `ohmy "my@value"`, "ohmy", "my@value"},
@@ -187,34 +173,23 @@ func TestParserNodeArgs(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.testname, func(t *testing.T) {
-			parser := setup(test.body)
 			// Act
+			parser := setup(test.body)
 			doc, err := parser.parse()
 
 			// Assert
-			if err != nil {
-				t.Fatalf("expected no error but was: %s", err)
-			}
+			require.NoError(t, err)
 
 			nodes := doc.Nodes()
-			if len(nodes) != 1 {
-				t.Fatal("expected nodes to be one")
-			}
+			require.Len(t, nodes, 1)
 			node := nodes[0]
+			require.Equal(t, test.expectedNodeName, node.Name)
 
-			if node.Name != test.expectedNodeName {
-				t.Fatalf("expected node name to be %s but was %s", test.expectedNodeName, node.Name)
-			}
+			require.Len(t, node.Args, 1)
+			arg := node.Args[0]
 
-			args := node.Args
-			if len(args) != 1 {
-				t.Fatal("expected node args to be one")
-			}
-			arg := args[0]
-
-			if arg.Value != test.expectedArgValue {
-				t.Fatalf("expected value to be %v but was %v", test.expectedArgValue, arg.Value)
-			}
+			require.Equal(t, test.expectedArgValue, arg.Value)
+			require.Equal(t, TypeAnnotation(""), arg.TypeAnnotation)
 		})
 	}
 }
@@ -245,6 +220,35 @@ func TestParserNodeArgsInvalid(t *testing.T) {
 	}
 }
 
+func TestParserNodeArgsTypeAnnotationsInvalid(t *testing.T) {
+	// Arrange
+	tests := []struct {
+		testname string
+		body     string
+	}{
+		{"type annotation for invalid literal: null", "NodeName (u8)null"},
+		{"type annotation for invalid literal: true", "NodeName (u8)true"},
+		{"type annotation for invalid literal: false", "NodeName (u8)false"},
+		{"u8 for type string", `NodeName (u8)"value"`},
+		{"uncloses paranthesis", `NodeName (string"value"`},
+		{"integer for type float", "NodeName (u16)12.456"},
+		{"float for type integer", "NodeName (f64)12"},
+		{"negative for unsigned integer", "NodeName (u64)-12"},
+		{"overflow for u8", "NodeName (u8)1024"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			// Act
+			parser := setup(test.body)
+			_, err := parser.parse()
+
+			// Assert
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestParserNodeProp(t *testing.T) {
 	// Arrange
 	nodeName := "NodeName"
@@ -254,7 +258,7 @@ func TestParserNodeProp(t *testing.T) {
 		expectedPropName  string
 		expectedPropValue any
 	}{
-		{"integer value", "NodeName myprop=1", "myprop", 1},
+		{"integer value", "NodeName myprop=1", "myprop", int64(1)},
 		{"float value", "NodeName myprop=1.234", "myprop", 1.234},
 		{"string value", `NodeName myprop="Hello, World!"`, "myprop", "Hello, World!"},
 		{"string value - quoted name", `NodeName "hehe prop"="Hello, World!"`, "hehe prop", "Hello, World!"},
@@ -270,33 +274,20 @@ func TestParserNodeProp(t *testing.T) {
 			doc, err := parser.parse()
 
 			// Assert
-			if err != nil {
-				t.Fatalf("expected no error but was %s", err)
-			}
+			require.NoError(t, err)
 
 			nodes := doc.Nodes()
-			if len(nodes) != 1 {
-				t.Fatal("expected nodes to be one")
-			}
+			require.Len(t, nodes, 1)
 
 			node := nodes[0]
-			if node.Name != nodeName {
-				t.Fatalf("expected node name to be %s but was %s", nodeName, node.Name)
-			}
+			require.Equal(t, nodeName, node.Name)
 
 			props := node.Props
-			if len(props) != 1 {
-				t.Fatal("expected node args to be one")
-			}
+			require.Len(t, props, 1)
 			prop := props[0]
 
-			if prop.Value != test.expectedPropValue {
-				t.Fatalf("expected value to be %v but was %v", test.expectedPropValue, prop.Value)
-			}
-
-			if prop.Name != test.expectedPropName {
-				t.Fatalf("expected name to be %v but was %v", test.expectedPropName, prop.Name)
-			}
+			require.Equal(t, test.expectedPropName, prop.Name)
+			require.Equal(t, test.expectedPropValue, prop.Value)
 		})
 	}
 }
@@ -325,6 +316,49 @@ func TestParserNodePropInvalid(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error but was nil")
 			}
+		})
+	}
+}
+
+func TestParserNodePropTypeAnnotation(t *testing.T) {
+	// Arrange
+	nodeName := "NodeName"
+	propName := "myprop"
+	tests := []struct {
+		testname               string
+		body                   string
+		expectedValue          any
+		expectedTypeAnnot      TypeAnnotation
+		expectedValueTypeAnnot TypeAnnotation
+	}{
+		{"integer value - type annotation on arg", "NodeName myprop=(i64)1", int64(1), noTypeAnnot, I64},
+		{"integer value - type annotation on prop", "NodeName (author)myprop=1", int64(1), TypeAnnotation("author"), noTypeAnnot},
+		{"integer value - type annotation on prop and arg", "NodeName (author)myprop=(i64)1", int64(1), TypeAnnotation("author"), I64},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			parser := setup(test.body)
+			// Act
+			doc, err := parser.parse()
+
+			// Assert
+			require.NoError(t, err)
+
+			nodes := doc.Nodes()
+			require.Len(t, nodes, 1)
+
+			node := nodes[0]
+			require.Equal(t, nodeName, node.Name)
+
+			props := node.Props
+			require.Len(t, props, 1)
+			prop := props[0]
+
+			require.Equal(t, propName, prop.Name)
+			require.Equal(t, test.expectedValue, prop.Value)
+			require.Equal(t, test.expectedTypeAnnot, prop.TypeAnnot)
+			require.Equal(t, test.expectedValueTypeAnnot, prop.ValueTypeAnnot)
 		})
 	}
 }

@@ -39,7 +39,6 @@ The generall API for module (including the types Doc, Node, Arg and Prop) is yet
 
 Although it can be used, it is very rough.
 
-
 ## Implementation Status
 
 - Comments
@@ -53,9 +52,8 @@ Although it can be used, it is very rough.
   - [x] Integers
   - [x] Float
   - [x] Scientific notation
-  - [x] Negative numbers
 - Strings
   - [x] Regular strings (double quotes)
   - [ ] Raw string literals
   - [ ] Raw string literals with `#`
-- [ ] Type annotations
+- [x] Type annotations
