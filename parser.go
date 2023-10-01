@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -353,7 +354,12 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 		}
 	}
 
-	return parseStringValue(buf.String(), typeAnnot)
+	sss, err := strconv.Unquote("\"" + buf.String() + "\"")
+	if err != nil {
+		return "", err
+	}
+
+	return parseStringValue(sss, typeAnnot)
 }
 
 func scanProp(cx *parseContext, sc *pkg.Scanner, name, typeAnnotation string) (Prop, error) {
