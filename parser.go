@@ -362,47 +362,6 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 	return parseStringValue(sss, typeAnnot)
 }
 
-// Tries to scan an escaped character in a quoted string:
-// https://github.com/kdl-org/kdl/blob/main/SPEC.md#quoted-string
-func scanEscape(cx *parseContext, sc *pkg.Scanner) (string, error) {
-	buf := strings.Builder{}
-	done := false
-
-	for !done {
-		token, lit := sc.Scan()
-		if token == pkg.EOF {
-			return "", fmt.Errorf("error reading string literal: reached EOF")
-		}
-
-		if !pkg.IsAnyOf(token, pkg.CHAR, pkg.QUOTE, pkg.BACKSLASH) {
-			return "", fmt.Errorf("invalid escape sequence")
-		}
-
-		switch lit {
-		case "\"":
-			return "\"", nil
-		case "n":
-			return "\n", nil
-		case "r":
-			return "\r", nil
-		case "t":
-			return "\t", nil
-		case "\\":
-			return "\\", nil
-		case "b":
-			return "\b", nil
-		case "f":
-			return "\f", nil
-		case "u":
-			return "\f", nil
-		default:
-			return "", fmt.Errorf("invalid escape sequence")
-		}
-	}
-
-	return buf.String(), nil
-}
-
 func scanProp(cx *parseContext, sc *pkg.Scanner, name, typeAnnotation string) (Prop, error) {
 	cx.logger.Println("Scanning node property:", name)
 	_, _ = sc.ScanWhitespace()

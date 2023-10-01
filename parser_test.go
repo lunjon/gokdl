@@ -166,15 +166,15 @@ func TestParserNodeArgs(t *testing.T) {
 	}{
 		{"integer", "node 1", int64(1)},
 		{"integer with underscore", "node 1_0_0", int64(100)},
-		// {"float1", "node 1.234", 1.234},
-		// {"float2", "node 1234.5678", 1234.5678},
-		// {"string1", "node \"my@value\"", "my@value"},
-		// {"string2", "node \"TODO: $1\"", "TODO: $1"},
-		// {"null", "node null", nil},
-		// {"true", "node true", true},
-		// {"false", "node false", false},
-		// {"hex - small caps", "node 0x1aaeff", int64(1748735)},
-		// {"hex - mixed caps", "node 0x1AAeff", int64(1748735)},
+		{"float1", "node 1.234", 1.234},
+		{"float2", "node 1234.5678", 1234.5678},
+		{"string1", "node \"my@value\"", "my@value"},
+		{"string2", "node \"TODO: $1\"", "TODO: $1"},
+		{"null", "node null", nil},
+		{"true", "node true", true},
+		{"false", "node false", false},
+		{"hex - small caps", "node 0x1aaeff", int64(1748735)},
+		{"hex - mixed caps", "node 0x1AAeff", int64(1748735)},
 	}
 
 	for _, test := range tests {

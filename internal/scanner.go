@@ -51,7 +51,6 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 	}
 
 	ch := s.read()
-	// fmt.Println("[scanner] CH:", string(ch))
 
 	if unicode.IsSpace(ch) {
 		s.r.UnreadRune()
