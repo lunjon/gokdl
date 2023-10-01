@@ -489,6 +489,7 @@ func TestParserStringsEscaped(t *testing.T) {
 	require.Equal(t, "\t", nodes[0].Args[0].Value)
 	require.Equal(t, "\u00CA", nodes[1].Args[0].Value)
 	require.Equal(t, "Ê", nodes[1].Args[0].Value)
+	require.Equal(t, `"`, nodes[2].Args[0].Value)
 }
 
 func setup(doc string) *parser {

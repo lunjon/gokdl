@@ -347,6 +347,14 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 		}
 
 		switch token {
+		case pkg.BACKSLASH:
+			next, nextLit := sc.Scan()
+			if next == pkg.QUOTE {
+				buf.WriteString(`\"`)
+			} else {
+				buf.WriteString(lit)
+				buf.WriteString(nextLit)
+			}
 		case pkg.QUOTE:
 			done = true
 		default:
@@ -354,6 +362,7 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 		}
 	}
 
+	fmt.Println("UNQUOTING:", buf.String())
 	sss, err := strconv.Unquote("\"" + buf.String() + "\"")
 	if err != nil {
 		return "", err
