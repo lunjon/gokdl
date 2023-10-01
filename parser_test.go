@@ -155,20 +155,23 @@ func TestParserNodeIdentifierInvalid(t *testing.T) {
 
 func TestParserNodeArgs(t *testing.T) {
 	// Arrange
+	nodeName := "node"
 	tests := []struct {
 		testname         string
 		body             string
-		expectedNodeName string
 		expectedArgValue any
 	}{
-		{"integer", "NodeName 1", "NodeName", int64(1)},
-		{"float1", "NodeName 1.234", "NodeName", 1.234},
-		{"float2", "NodeName 1234.5678", "NodeName", 1234.5678},
-		{"string1", `ohmy "my@value"`, "ohmy", "my@value"},
-		{"string2", `ohmy "TODO: $1"`, "ohmy", "TODO: $1"},
-		{"null", `Nullify null`, "Nullify", nil},
-		{"true", `MyBool true`, "MyBool", true},
-		{"false", `MyBool false`, "MyBool", false},
+		{"integer", "node 1", int64(1)},
+		{"integer with underscore", "node 1_0_0", int64(100)},
+		{"float1", "node 1.234", 1.234},
+		{"float2", "node 1234.5678", 1234.5678},
+		{"string1", `node "my@value"`, "my@value"},
+		{"string2", `node "TODO: $1"`, "TODO: $1"},
+		{"null", `node null`, nil},
+		{"true", `node true`, true},
+		{"false", `node false`, false},
+		{"hex - small caps", `node 0x1aaeff`, int64(1748735)},
+		{"hex - mixed caps", `node 0x1AAeff`, int64(1748735)},
 	}
 
 	for _, test := range tests {
@@ -183,7 +186,7 @@ func TestParserNodeArgs(t *testing.T) {
 			nodes := doc.Nodes()
 			require.Len(t, nodes, 1)
 			node := nodes[0]
-			require.Equal(t, test.expectedNodeName, node.Name)
+			require.Equal(t, nodeName, node.Name)
 
 			require.Len(t, node.Args, 1)
 			arg := node.Args[0]
