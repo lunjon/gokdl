@@ -86,13 +86,12 @@ func ContainsNonIdent(s string) bool {
 
 func init() {
 	nonIdents = map[rune]bool{}
-	nons := "\\/(){}<>;[]=,"
-	for _, r := range nons {
+	for _, r := range `\/(){}<>;[]=,` {
 		nonIdents[r] = true
 	}
 
 	hexRunes = map[rune]bool{}
-	for _, r := range "0123456789abcdef" {
+	for _, r := range "0123456789abcdefABCDEF" {
 		hexRunes[r] = true
 	}
 }

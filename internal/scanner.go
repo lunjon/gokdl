@@ -202,11 +202,17 @@ func (s *Scanner) scanNumber(neg bool) (Token, string) {
 		return s.scanFloat(comp)
 	} else if comp == "0x" {
 		return s.scanHex()
+	} else if comp == "0o" {
+		return s.scanOctal()
 	} else if comp == "0b" {
 		return s.scanBinary()
-	} else if unicode.IsSpace(next) || !unicode.IsDigit(next) {
-		s.r.UnreadRune()
-		return s.setAndReturn(NUM_INT, start)
+	}
+
+	if next != '_' {
+		if unicode.IsSpace(next) || !unicode.IsDigit(next) {
+			s.r.UnreadRune()
+			return s.setAndReturn(NUM_INT, start)
+		}
 	}
 
 	// Read as integer
@@ -215,7 +221,7 @@ func (s *Scanner) scanNumber(neg bool) (Token, string) {
 		return unicode.IsDigit(r) || r == '_'
 	})
 
-	return s.setAndReturn(NUM_INT, strings.ReplaceAll(lit, "_", ""))
+	return s.setAndReturn(NUM_INT, strings.ReplaceAll(start+lit, "_", ""))
 }
 
 func (s *Scanner) scanFloat(start string) (Token, string) {
@@ -264,8 +270,9 @@ func (s *Scanner) scanFloat(start string) (Token, string) {
 func (s *Scanner) scanBinary() (Token, string) {
 	// Read binary
 	lit := s.ScanWhile(func(r rune) bool {
-		return r == '0' || r == '1'
+		return r == '0' || r == '1' || r == '_'
 	})
+	lit = strings.ReplaceAll(lit, "_", "")
 
 	n, err := strconv.ParseInt(lit, 2, 64)
 	if err != nil {
@@ -275,11 +282,27 @@ func (s *Scanner) scanBinary() (Token, string) {
 	return s.setAndReturn(NUM_INT, fmt.Sprint(n))
 }
 
+func (s *Scanner) scanOctal() (Token, string) {
+	// Read binary
+	lit := s.ScanWhile(func(r rune) bool {
+		return ('0' <= r && r <= '7') || r == '_'
+	})
+	lit = strings.ReplaceAll(lit, "_", "")
+
+	n, err := strconv.ParseInt(lit, 8, 64)
+	if err != nil {
+		return s.setAndReturn(CHARS, "0o"+lit)
+	}
+
+	return s.setAndReturn(NUM_INT, fmt.Sprint(n))
+}
+
 func (s *Scanner) scanHex() (Token, string) {
 	// Read hexadecimal: 0xdeadbeef
 	lit := s.ScanWhile(func(r rune) bool {
-		return hexRunes[r]
+		return hexRunes[r] || r == '_'
 	})
+	lit = strings.ReplaceAll(lit, "_", "")
 
 	n, err := strconv.ParseInt(lit, 16, 64)
 	if err != nil {
