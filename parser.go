@@ -167,7 +167,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			done = true
 		case pkg.WS:
 			// FIXME: handle other types of newline control characters (see the spec)
-			if strings.HasSuffix(lit, "\n") || strings.HasPrefix(lit, "\n") {
+			if strings.Contains(lit, "\n") || strings.Contains(lit, "\r") {
 				done = true
 			}
 		case pkg.COMMENT_LINE:
@@ -357,12 +357,15 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 			}
 		case pkg.QUOTE:
 			done = true
+		case pkg.WS:
+			// Unquoted newline characters are invalid -> replace prior unquoting
+			res := strings.ReplaceAll(lit, "\n", "\\n")
+			buf.WriteString(strings.ReplaceAll(res, "\r", "\\n"))
 		default:
 			buf.WriteString(lit)
 		}
 	}
 
-	fmt.Println("UNQUOTING:", buf.String())
 	sss, err := strconv.Unquote("\"" + buf.String() + "\"")
 	if err != nil {
 		return "", err

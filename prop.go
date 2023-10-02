@@ -17,17 +17,3 @@ type Prop struct {
 func (p Prop) String() string {
 	return fmt.Sprintf("%s=%v", p.Name, p.Value)
 }
-
-func newProp(
-	name string,
-	typeAnnot TypeAnnotation,
-	value any,
-	valueTypeAnnot TypeAnnotation,
-) Prop {
-	return Prop{
-		Name:           name,
-		TypeAnnot:      typeAnnot,
-		Value:          value,
-		ValueTypeAnnot: valueTypeAnnot,
-	}
-}

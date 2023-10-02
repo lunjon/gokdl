@@ -169,7 +169,13 @@ func TestParserNodeArgs(t *testing.T) {
 		{"float1", "node 1.234", 1.234},
 		{"float2", "node 1234.5678", 1234.5678},
 		{"string1", "node \"my@value\"", "my@value"},
-		{"string2", "node \"TODO: $1\"", "TODO: $1"},
+		{"string2", `node "TODO: $1"`, "TODO: $1"},
+		{"string3", `node "log.Printf(\"$1\")"`, `log.Printf("$1")`},
+		{"string4", `node "block{
+	$1
+}"`, `block{
+	$1
+}`},
 		{"null", "node null", nil},
 		{"true", "node true", true},
 		{"false", "node false", false},
