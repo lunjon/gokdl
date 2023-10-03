@@ -67,8 +67,7 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 		s.eof = true
 		token = EOF
 	case '"':
-		token = QUOTE
-		str = string(ch)
+		return s.scanQuote()
 	case '=':
 		token = EQUAL
 		str = string(ch)
@@ -153,12 +152,51 @@ func (s *Scanner) Scan() (tok Token, lit string) {
 	case '\\':
 		token = BACKSLASH
 		str = string(ch)
+	case 'r':
+		return s.scanRawString()
 	default:
 		token = CHAR
 		str = string(ch)
 	}
 
 	return s.setAndReturn(token, str)
+}
+
+func (s *Scanner) scanRawString() (Token, string) {
+	next := s.read()
+	switch next {
+	case '"':
+		return RAWSTR_OPEN, `r"`
+	case '#':
+		lit := s.ScanWhile(func(r rune) bool {
+			return r == '#'
+		})
+
+		next := s.read()
+		if next != '"' {
+			s.r.UnreadRune()
+			return CHAR, fmt.Sprintf("r#%s", lit)
+		}
+
+		return RAWSTR_HASH_OPEN, fmt.Sprintf(`r#%s"`, lit)
+	default:
+		s.r.UnreadRune()
+		return CHAR, "r"
+	}
+}
+
+// Handles a single " as well as "##...
+func (s *Scanner) scanQuote() (Token, string) {
+	next := s.read()
+	if next != '#' {
+		s.r.UnreadRune()
+		return QUOTE, `"`
+	}
+
+	lit := s.ScanWhile(func(r rune) bool {
+		return r == '#'
+	})
+	return RAWSTR_HASH_CLOSE, `"#` + lit
 }
 
 func (s *Scanner) ScanWhile(pred func(rune) bool) string {

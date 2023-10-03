@@ -176,6 +176,11 @@ func TestParserNodeArgs(t *testing.T) {
 }"`, `block{
 	$1
 }`},
+		{"rawstring1", `node r"h\e\l\l"`, `h\e\l\l`},
+		{"rawstringhash1", `node r#"h\e\l\l"#`, `h\e\l\l`},
+		{"rawstringhash2", `node r##"h\e\l\l"##`, `h\e\l\l`},
+		{"rawstringhash3", `node r##"he"ll"##`, `he"ll`},
+		{"rawstringhash4", `node r##"he#ll"##`, `he#ll`},
 		{"null", "node null", nil},
 		{"true", "node true", true},
 		{"false", "node false", false},
@@ -216,6 +221,9 @@ func TestParserNodeArgsInvalid(t *testing.T) {
 		{"bare identifier", "NodeName nodename"},
 		{"unexpected slash", "NodeName /"},
 		{"unexpected dot", "NodeName ."},
+		{"unterminated string", `NodeName ".`},
+		{"invalid termination of raw string 1", `NodeName r".`},
+		{"invalid termination of raw string 2", `NodeName r##"."#`},
 	}
 
 	for _, test := range tests {
@@ -225,9 +233,7 @@ func TestParserNodeArgsInvalid(t *testing.T) {
 			_, err := parser.parse()
 
 			// Assert
-			if err == nil {
-				t.Fatal("expected error but was nil")
-			}
+			require.Error(t, err)
 		})
 	}
 }
