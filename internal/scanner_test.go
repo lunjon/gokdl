@@ -3,6 +3,8 @@ package internal
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestScannerScanWhitespace(t *testing.T) {
@@ -41,7 +43,7 @@ func TestScannerScanNumbers(t *testing.T) {
 		{"float - dot", "1.1", NUM_FLOAT, "1.1"},
 		{"float - dot multi", "1.12345", NUM_FLOAT, "1.12345"},
 		{"float - scientific (pos exp)", "1.123e12", NUM_SCI, "1.123e12"},
-		{"float - scientific (neg exp)", "1.123e-9", NUM_SCI, "1.234e9"},
+		{"float - scientific (neg exp)", "1.123e-9", NUM_SCI, "1.123e-9"},
 		{"float - scientific neg", "-1.123e9", NUM_SCI, "-1.123e9"},
 		{"binary", "0b0101", NUM_INT, "5"},
 		{"binary - underscore", "0b01_01", NUM_INT, "5"},
@@ -54,10 +56,36 @@ func TestScannerScanNumbers(t *testing.T) {
 	for _, test := range tests {
 		sc := setup(test.str)
 		t.Run(test.name, func(t *testing.T) {
-			token, _ := sc.Scan()
-			if token != test.expectedToken {
-				t.Fatalf("expected token to be %d but was %d", test.expectedToken, token)
-			}
+			token, lit := sc.Scan()
+			require.Equal(t, test.expectedToken, token)
+			require.Equal(t, test.expectedLit, lit)
+		})
+	}
+}
+
+func TestScannerScanRawString(t *testing.T) {
+	tests := []struct {
+		name          string
+		str           string
+		expectedToken Token
+		expectedLit   string
+	}{
+		{"no raw string", "r", CHAR, "r"},
+		{"raw string", `r"`, RAWSTR_OPEN, `r"`},
+		{"raw string hash 1", `r#"`, RAWSTR_HASH_OPEN, `r#"`},
+		{"raw string hash 2", `r##"`, RAWSTR_HASH_OPEN, `r##"`},
+		{"other", `r##`, CHAR, `r##`},
+		{"quote end 1", `"`, QUOTE, `"`},
+		{"quote end 2", `"#`, RAWSTR_HASH_CLOSE, `"#`},
+		{"quote end 3", `"##`, RAWSTR_HASH_CLOSE, `"##`},
+	}
+
+	for _, test := range tests {
+		sc := setup(test.str)
+		t.Run(test.name, func(t *testing.T) {
+			token, lit := sc.Scan()
+			require.Equal(t, test.expectedToken, token)
+			require.Equal(t, test.expectedLit, lit)
 		})
 	}
 }

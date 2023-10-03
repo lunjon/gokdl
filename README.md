@@ -35,7 +35,7 @@ MyNode "string arg" myint=1234 awesome=true {
 
 ## API
 
-The generall API for module (including the types Doc, Node, Arg and Prop) is yet to be done
+The general API for module (including the types Doc, Node, Arg and Prop) is yet to be done.
 
 Although it can be used, it is very rough.
 
@@ -43,7 +43,7 @@ Although it can be used, it is very rough.
 
 - Comments
   - [x] Line
-  - [x] Multiine
+  - [x] Multiline
   - [x] Slash-dash
 - [x] Node with children
 - [x] Support arbitrary identifiers
@@ -54,6 +54,5 @@ Although it can be used, it is very rough.
   - [x] Scientific notation
 - Strings
   - [x] Regular strings (double quotes)
-  - [ ] Raw string literals
-  - [ ] Raw string literals with `#`
+  - [x] Raw string literals
 - [x] Type annotations

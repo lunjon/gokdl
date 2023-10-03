@@ -84,13 +84,25 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			} else {
 				return nil, fmt.Errorf("expected a node after slash-dash comment")
 			}
-		case pkg.QUOTE:
+		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN:
 			// Identifier in quotes => parse as string
-			lit, err := scanString(cx, sc, "")
+
+			var err error
+			var str string
+			switch token {
+			case pkg.QUOTE:
+				str, err = scanString(cx, sc, "")
+			case pkg.RAWSTR_OPEN:
+				str, err = scanRawString(cx, sc, "")
+			case pkg.RAWSTR_HASH_OPEN:
+				str, err = scanRawStringHash(cx, sc, lit, "")
+			}
+
 			if err != nil {
 				return nil, err
 			}
-			node, err := scanNode(cx, sc, lit)
+
+			node, err := scanNode(cx, sc, str)
 			if err != nil {
 				return nil, err
 			}
@@ -208,15 +220,24 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 
 			args = append(args, arg)
 			typeAnnotation = ""
-		case pkg.QUOTE:
-			s, err := scanString(cx, sc, typeAnnotation)
+		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN:
+			var str string
+			var err error
+			switch token {
+			case pkg.QUOTE:
+				str, err = scanString(cx, sc, typeAnnotation)
+			case pkg.RAWSTR_OPEN:
+				str, err = scanRawString(cx, sc, typeAnnotation)
+			case pkg.RAWSTR_HASH_OPEN:
+				str, err = scanRawStringHash(cx, sc, lit, typeAnnotation)
+			}
 			if err != nil {
 				return Node{}, err
 			}
 
 			nextToken, _ := sc.Scan()
 			if nextToken == pkg.EQUAL {
-				prop, err := scanProp(cx, sc, s, typeAnnotation)
+				prop, err := scanProp(cx, sc, str, typeAnnotation)
 				if err != nil {
 					return Node{}, err
 				}
@@ -228,7 +249,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			} else {
 				if !skip {
 					sc.Unread()
-					arg := newArg(s, TypeAnnotation(typeAnnotation))
+					arg := newArg(str, TypeAnnotation(typeAnnotation))
 					args = append(args, arg)
 				}
 
@@ -372,6 +393,56 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 	}
 
 	return parseStringValue(sss, typeAnnot)
+}
+
+func scanRawString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, error) {
+	cx.logger.Println("Scanning raw string literal")
+
+	buf := strings.Builder{}
+	done := false
+	for !done {
+		token, lit := sc.Scan()
+		if token == pkg.EOF {
+			return "", fmt.Errorf("error reading raw string literal: reached EOF")
+		}
+
+		switch token {
+		case pkg.QUOTE:
+			done = true
+		default:
+			buf.WriteString(lit)
+		}
+	}
+
+	return parseStringValue(buf.String(), typeAnnot)
+}
+
+func scanRawStringHash(cx *parseContext, sc *pkg.Scanner, start, typeAnnot string) (string, error) {
+	end := strings.TrimPrefix(start, "r")
+	end = strings.TrimSuffix(end, `"`)
+	end = `"` + end
+
+	buf := strings.Builder{}
+	done := false
+	for !done {
+		token, lit := sc.Scan()
+		if token == pkg.EOF {
+			return "", fmt.Errorf("error reading raw string literal: reached EOF")
+		}
+
+		switch token {
+		case pkg.RAWSTR_HASH_CLOSE:
+			if lit == end {
+				done = true
+			} else {
+				return "", fmt.Errorf("invalid terminal of raw string literal: %s", lit)
+			}
+		default:
+			buf.WriteString(lit)
+		}
+	}
+
+	return parseStringValue(buf.String(), typeAnnot)
 }
 
 func scanProp(cx *parseContext, sc *pkg.Scanner, name, typeAnnotation string) (Prop, error) {
