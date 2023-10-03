@@ -21,9 +21,7 @@ func TestScannerScanWhitespace(t *testing.T) {
 		sc := setup(test.str)
 		t.Run(test.name, func(t *testing.T) {
 			token, _ := sc.Scan()
-			if token != WS {
-				t.Fatalf("expected token to be %d but was %d", WS, token)
-			}
+			require.Equal(t, WS, token)
 		})
 	}
 }

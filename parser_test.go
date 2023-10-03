@@ -42,9 +42,7 @@ another
 func TestParserSlashdashCommentNode(t *testing.T) {
 	doc := setupAndParse(t, `/-mynode`)
 	nodes := doc.Nodes()
-	if len(nodes) != 0 {
-		t.Fatal("expected nodes to be empty")
-	}
+	require.Len(t, nodes, 0)
 }
 
 func TestParserSlashdashCommentArg(t *testing.T) {
@@ -79,14 +77,9 @@ func TestParserSlashdashCommentChildren(t *testing.T) {
 	childNode
 }`)
 	nodes := doc.Nodes()
-	if len(nodes) != 1 {
-		t.Fatal("expected nodes to be 1")
-	}
-
+	require.Len(t, nodes, 1)
 	children := nodes[0].Children
-	if len(children) != 0 {
-		t.Fatalf("expected children to be empty but was %d", len(children))
-	}
+	require.Len(t, children, 0)
 }
 
 func TestParserSlashdashCommentNestedChildren(t *testing.T) {
@@ -95,14 +88,8 @@ func TestParserSlashdashCommentNestedChildren(t *testing.T) {
 	Exists true
 }`)
 	nodes := doc.Nodes()
-	if len(nodes) != 1 {
-		t.Fatal("expected nodes to be 1")
-	}
-
-	children := nodes[0].Children
-	if len(children) != 1 {
-		t.Fatalf("expected children to be 1 but was %d", len(children))
-	}
+	require.Len(t, nodes, 1)
+	require.Len(t, nodes[0].Children, 1)
 }
 
 func TestParserValidNodeIdentifier(t *testing.T) {
@@ -121,14 +108,10 @@ func TestParserValidNodeIdentifier(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.testname, func(t *testing.T) {
 			doc := setupAndParse(t, test.doc)
-			if len(doc.nodes) != 1 {
-				t.Fatalf("expected nodes to have length 1 but was %d", len(doc.nodes))
-			}
+			require.Len(t, doc.nodes, 1)
 
 			name := doc.nodes[0].Name
-			if name != test.expectedName {
-				t.Fatalf("expected node to have name %s but was %s", test.expectedName, name)
-			}
+			require.Equal(t, test.expectedName, name)
 		})
 	}
 }
@@ -149,9 +132,7 @@ func TestParserNodeIdentifierInvalid(t *testing.T) {
 		t.Run(test.testname, func(t *testing.T) {
 			parser := setup(test.ident)
 			_, err := parser.parse()
-			if err == nil {
-				t.Fatal("expected error but was nil")
-			}
+			require.Error(t, err)
 		})
 	}
 }
@@ -331,9 +312,7 @@ func TestParserNodePropInvalid(t *testing.T) {
 			_, err := parser.parse()
 
 			// Assert
-			if err == nil {
-				t.Fatal("expected error but was nil")
-			}
+			require.Error(t, err)
 		})
 	}
 }
@@ -439,17 +418,13 @@ func TestParserNodeChildren(t *testing.T) {
 		t.Run(test.testname, func(t *testing.T) {
 			doc := setupAndParse(t, test.body)
 			actual := totalChildren(doc)
-			if actual != test.expectedNodes {
-				t.Fatalf("expected %d total children but was %d", test.expectedNodes, actual)
-			}
+			require.Equal(t, test.expectedNodes, actual)
 		})
 	}
 
 	doc := setupAndParse(t, `Parent { child-1; child2; child-3 }`)
 	children := doc.nodes[0].Children
-	if len(children) != 3 {
-		t.Fatalf("expected to have 1 child but was %d", len(children))
-	}
+	require.Len(t, children, 3)
 }
 
 func TestParserNodeChildrenSingle(t *testing.T) {
@@ -457,12 +432,8 @@ func TestParserNodeChildrenSingle(t *testing.T) {
 	child
 }`)
 	children := doc.nodes[0].Children
-	if len(children) != 1 {
-		t.Fatalf("expected to have 1 child but was %d", len(children))
-	}
-	if children[0].Name != "child" {
-		t.Fatalf("expected to have name 'child' but was '%s'", children[0].Name)
-	}
+	require.Len(t, children, 1)
+	require.Equal(t, "child", children[0].Name)
 }
 
 func TestParserNodeChildrenMultiple(t *testing.T) {
@@ -471,17 +442,13 @@ func TestParserNodeChildrenMultiple(t *testing.T) {
 	child-3
 }`)
 	children := doc.nodes[0].Children
-	if len(children) != 3 {
-		t.Fatalf("expected to have 1 child but was %d", len(children))
-	}
+	require.Len(t, children, 3)
 }
 
 func TestParserNodeChildrenMultipleSameRow(t *testing.T) {
 	doc := setupAndParse(t, `Parent { child-1; child2; child-3 }`)
 	children := doc.nodes[0].Children
-	if len(children) != 3 {
-		t.Fatalf("expected to have 1 child but was %d", len(children))
-	}
+	require.Len(t, children, 3)
 }
 
 func TestParserStringsEscaped(t *testing.T) {
