@@ -35,7 +35,7 @@ MyNode "string arg" myint=1234 awesome=true {
 
 ## API
 
-The general API for module (including the types Doc, Node, Arg and Prop) is yet to be done
+The general API for module (including the types Doc, Node, Arg and Prop) is yet to be done.
 
 Although it can be used, it is very rough.
 
