@@ -11,6 +11,25 @@ import (
 	pkg "github.com/lunjon/gokdl/internal"
 )
 
+var newlinesToQuoted = map[string]string{
+	"\n":     "\\n",     // newline
+	"\r":     "\\r",     // carriage return
+	"\r\n":   "\\r\\n",  // carriage return newline
+	"\f":     "\\f",     // form feed
+	"\u0085": "\\u0085", // next line
+	"\u2028": "\\u2028", // line separator
+	"\u2029": "\\u2029", // paragraph separator
+}
+
+func isNewline(lit string) bool {
+	for nl := range newlinesToQuoted {
+		if strings.Contains(lit, nl) {
+			return true
+		}
+	}
+	return false
+}
+
 type parseContext struct {
 	logger *log.Logger
 }
@@ -178,8 +197,7 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 		case pkg.SEMICOLON:
 			done = true
 		case pkg.WS:
-			// FIXME: handle other types of newline control characters (see the spec)
-			if strings.Contains(lit, "\n") || strings.Contains(lit, "\r") {
+			if isNewline(lit) {
 				done = true
 			}
 		case pkg.COMMENT_LINE:
@@ -380,8 +398,14 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 			done = true
 		case pkg.WS:
 			// Unquoted newline characters are invalid -> replace prior unquoting
-			res := strings.ReplaceAll(lit, "\n", "\\n")
-			buf.WriteString(strings.ReplaceAll(res, "\r", "\\n"))
+			res := lit
+			for nl, escaped := range newlinesToQuoted {
+				res = strings.ReplaceAll(res, nl, escaped)
+			}
+			buf.WriteString(res)
+		case pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN:
+			buf.WriteString(lit[:len(lit)-1])
+			done = true
 		default:
 			buf.WriteString(lit)
 		}

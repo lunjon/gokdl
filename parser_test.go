@@ -11,6 +11,53 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestParserLineSeparators(t *testing.T) {
+	tests := []struct {
+		testname string
+		body     string
+	}{
+		{"newline", "A\nB"},
+		{"carriage return", "A\rB"},
+		{"carriage return newline", "A\r\nB"},
+		{"form feed", "A\fB"},
+		{"next line", "A\u0085B"},
+		{"line separator", "A\u2028B"},
+		{"paragraph separator", "A\u2029B"},
+		{"multiple variants", "A\u2029\n\u2028\u0085\f\r\r\nB"},
+	}
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			nodes := setupAndParse(t, test.body).Nodes()
+			require.Len(t, nodes, 2)
+			require.Equal(t, "A", nodes[0].Name)
+			require.Equal(t, "B", nodes[1].Name)
+		})
+	}
+}
+
+func TestParserNewlineEscaping(t *testing.T) {
+	tests := []struct {
+		testname string
+		body     string
+		parsed   string
+	}{
+		{"newline in string value", "node \"new\nline\"", "new\nline"},
+		{"carriage return in string value", "node \"carriage\rreturn\"", "carriage\rreturn"},
+		{"carriage return newline", "node \"cr\r\nnl\"", "cr\r\nnl"},
+		{"form feed in string value", "node \"form\ffeed\"", "form\ffeed"},
+		{"next line in string value", "node \"next\u0085line\"", "next\u0085line"},
+		{"line separator in string value", "node \"line\u2028separator\"", "line\u2028separator"},
+		{"paragraph separator in string value", "node \"paragraph\u2029separator\"", "paragraph\u2029separator"},
+	}
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			nodes := setupAndParse(t, test.body).Nodes()
+			require.Len(t, nodes, 1)
+			require.Equal(t, test.parsed, nodes[0].Args[0].String())
+		})
+	}
+}
+
 func TestParserLineComment(t *testing.T) {
 	_ = setupAndParse(t, `// First line
 // Second line
