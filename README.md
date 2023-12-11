@@ -11,20 +11,22 @@ package main
 
 import (
     "log"
+    "strings"
     "github.com/lunjon/gokdl"
 )
 
 func main() {
-    bs := []byte(`
+    kdl := `
 MyNode "string arg" myint=1234 awesome=true {
   child-node 
 }      
 
 // A node with arbitrary name (in quotes)
 "Other node with much cooler name!" { Okay; }
-`)
+`
 
-    doc, err := gokdl.Parse(bs)
+    r := strings.NewReader(kdl)
+    doc, err := gokdl.Parse(r)
     if err != nil {
         log.Fatal(err)
     }
@@ -35,24 +37,4 @@ MyNode "string arg" myint=1234 awesome=true {
 
 ## API
 
-The general API for module (including the types Doc, Node, Arg and Prop) is yet to be done.
-
-Although it can be used, it is very rough.
-
-## Implementation Status
-
-- Comments
-  - [x] Line
-  - [x] Multiline
-  - [x] Slash-dash
-- [x] Node with children
-- [x] Support arbitrary identifiers
-- [x] Multiline nodes
-- Number literals
-  - [x] Integers
-  - [x] Float
-  - [x] Scientific notation
-- Strings
-  - [x] Regular strings (double quotes)
-  - [x] Raw string literals
-- [x] Type annotations
+The API for module is very still very rough.
