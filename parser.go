@@ -1,9 +1,8 @@
 package gokdl
 
 import (
-	"bytes"
 	"fmt"
-	"log"
+	"io"
 	"strconv"
 	"strings"
 	"unicode"
@@ -30,9 +29,7 @@ func isNewline(lit string) bool {
 	return false
 }
 
-type parseContext struct {
-	logger *log.Logger
-}
+type parseContext struct{}
 
 // The type responsible for parsing the documents.
 // The parser relies on the Scanner (internal) for
@@ -40,23 +37,17 @@ type parseContext struct {
 //
 // Specification: https://github.com/kdl-org/kdl/blob/main/SPEC.md
 type parser struct {
-	sc     *pkg.Scanner
-	logger *log.Logger
+	sc *pkg.Scanner
 }
 
-func newParser(logger *log.Logger, bs []byte) *parser {
-	r := bytes.NewReader(bs)
+func newParser(src io.Reader) *parser {
 	return &parser{
-		sc:     pkg.NewScanner(r),
-		logger: logger,
+		sc: pkg.NewScanner(src),
 	}
 }
 
 func (p *parser) parse() (Doc, error) {
-	cx := &parseContext{
-		logger: p.logger,
-	}
-
+	cx := &parseContext{}
 	nodes, err := parseScope(cx, p.sc, false)
 
 	return Doc{
@@ -131,7 +122,6 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 				text := sc.ScanBareIdent()
 				node, err := scanNode(cx, sc, lit+text)
 				if err != nil {
-					cx.logger.Println("Error scanning node:", text, err)
 					return nil, err
 				}
 				nodes = append(nodes, node)
@@ -145,10 +135,8 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 }
 
 func scanMultilineComment(cx *parseContext, sc *pkg.Scanner) error {
-	cx.logger.Println("Scanning multiline comment")
-
 	for {
-		token, lit := sc.Scan()
+		token, _ := sc.Scan()
 		if token == pkg.EOF {
 			break
 		}
@@ -156,7 +144,6 @@ func scanMultilineComment(cx *parseContext, sc *pkg.Scanner) error {
 		if token == pkg.COMMENT_MUL_CLOSE {
 			return nil
 		}
-		cx.logger.Printf("Literal: %s", lit)
 	}
 
 	return fmt.Errorf("no closing of multiline comment")
@@ -364,8 +351,6 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 		}
 	}
 
-	cx.logger.Printf("Succesfully scanned node %s", name)
-
 	return Node{
 		Name:     name,
 		Children: children,
@@ -375,8 +360,6 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 }
 
 func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, error) {
-	cx.logger.Println("Scanning string literal")
-
 	buf := strings.Builder{}
 	done := false
 	for !done {
@@ -420,8 +403,6 @@ func scanString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, er
 }
 
 func scanRawString(cx *parseContext, sc *pkg.Scanner, typeAnnot string) (string, error) {
-	cx.logger.Println("Scanning raw string literal")
-
 	buf := strings.Builder{}
 	done := false
 	for !done {
@@ -470,7 +451,6 @@ func scanRawStringHash(cx *parseContext, sc *pkg.Scanner, start, typeAnnot strin
 }
 
 func scanProp(cx *parseContext, sc *pkg.Scanner, name, typeAnnotation string) (Prop, error) {
-	cx.logger.Println("Scanning node property:", name)
 	_, _ = sc.ScanWhitespace()
 
 	done := false
@@ -540,8 +520,6 @@ func scanProp(cx *parseContext, sc *pkg.Scanner, name, typeAnnotation string) (P
 			}
 		}
 	}
-
-	cx.logger.Printf("Succesfully scanned property: %s=%v", name, value)
 
 	return Prop{
 		Name:           name,

@@ -1,13 +1,14 @@
 package gokdl_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/lunjon/gokdl"
 )
 
 func TestParseExample(t *testing.T) {
-	bs := []byte(`
+	doc := `
 // Line comment
 
 /*
@@ -38,9 +39,10 @@ science-arg-c 1.7883274
 hello \
 	1 2 3 \
 	myProp="wow"
-`)
+`
 
-	_, err := gokdl.Parse(bs)
+	r := strings.NewReader(doc)
+	_, err := gokdl.Parse(r)
 	if err != nil {
 		t.Fatalf("expected no error but was: %s", err)
 	}

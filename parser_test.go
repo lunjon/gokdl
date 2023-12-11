@@ -1,9 +1,9 @@
 package gokdl
 
 import (
-	"io"
-	"log"
+	"bytes"
 	"os"
+	"strings"
 
 	// "os"
 	"testing"
@@ -503,8 +503,7 @@ func TestParserStringsEscaped(t *testing.T) {
 	filename := "testdata/escaped.kdl"
 	bs, err := os.ReadFile(filename)
 	require.NoError(t, err)
-	logger := log.New(io.Discard, "", 0)
-	parser := newParser(logger, bs)
+	parser := newParser(bytes.NewReader(bs))
 
 	// Act
 	doc, err := parser.parse()
@@ -519,8 +518,8 @@ func TestParserStringsEscaped(t *testing.T) {
 }
 
 func setup(doc string) *parser {
-	logger := log.New(io.Discard, "", 0)
-	return newParser(logger, []byte(doc))
+	r := strings.NewReader(doc)
+	return newParser(r)
 }
 
 func setupAndParse(t *testing.T, doc string) Doc {
