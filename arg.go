@@ -5,7 +5,12 @@ import (
 )
 
 type Arg struct {
-	Value          any
+	// Value of the argument.
+	// It is `nil` for the KDL `null` value.
+	Value any
+	// Type annotation on the argument.
+	// It has the zero value if no type annotation
+	// exists for this argument.
 	TypeAnnotation TypeAnnotation
 }
 

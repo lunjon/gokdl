@@ -60,6 +60,16 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 	nodes := []Node{} // The nodes accumulated in this scope
 	done := false     // When true, parsing of the scope (root or children) is done
 
+	var typeAnnot string
+
+	appendNode := func(n Node) {
+		if typeAnnot != "" {
+			n.TypeAnnotation = TypeAnnotation(typeAnnot)
+			typeAnnot = ""
+		}
+		nodes = append(nodes, n)
+	}
+
 	for !done {
 		token, lit := sc.Scan()
 		if token == pkg.EOF {
@@ -75,7 +85,7 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			if isChild {
 				done = true
 			} else {
-				return nil, fmt.Errorf("unexpected token: %s (isChild=%v)", lit, isChild)
+				return nil, fmt.Errorf("unexpected token: %s", lit)
 			}
 		case pkg.COMMENT_LINE:
 			sc.ScanLine()
@@ -94,6 +104,12 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			} else {
 				return nil, fmt.Errorf("expected a node after slash-dash comment")
 			}
+		case pkg.PAREN_OPEN:
+			annot, err := scanTypeAnnotation(cx, sc)
+			if err != nil {
+				return nil, err
+			}
+			typeAnnot = annot
 		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN:
 			// Identifier in quotes => parse as string
 
@@ -116,7 +132,7 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			if err != nil {
 				return nil, err
 			}
-			nodes = append(nodes, node)
+			appendNode(node)
 		default:
 			if pkg.IsInitialIdentToken(token) {
 				text := sc.ScanBareIdent()
@@ -124,7 +140,7 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 				if err != nil {
 					return nil, err
 				}
-				nodes = append(nodes, node)
+				appendNode(node)
 			} else {
 				return nil, fmt.Errorf("unexpected token: %s", lit)
 			}
@@ -275,7 +291,6 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 			skip = false
 		case pkg.CBRACK_CLOSE:
 			done = true
-			// sc.Unread()
 		case pkg.PAREN_OPEN:
 			annot, err := scanTypeAnnotation(cx, sc)
 			if err != nil {
