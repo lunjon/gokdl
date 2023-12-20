@@ -13,6 +13,8 @@ func Parse(r io.Reader) (Doc, error) {
 	return parser.parse()
 }
 
+// ValueType is the type name of the different
+// primitive KDL types.
 type ValueType string
 
 const (

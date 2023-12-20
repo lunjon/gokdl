@@ -159,6 +159,7 @@ func TestParserValidNodeIdentifier(t *testing.T) {
 
 			name := doc.nodes[0].Name
 			require.Equal(t, test.expectedName, name)
+			require.Zero(t, doc.nodes[0].TypeAnnotation)
 		})
 	}
 }
@@ -403,6 +404,49 @@ func TestParserNodePropTypeAnnotation(t *testing.T) {
 			require.Equal(t, test.expectedValue, prop.Value)
 			require.Equal(t, test.expectedTypeAnnot, prop.TypeAnnot)
 			require.Equal(t, test.expectedValueTypeAnnot, prop.ValueTypeAnnot)
+		})
+	}
+}
+
+func TestParserNodeTypeAnnotation(t *testing.T) {
+	// Arrange
+	nodeName := "NodeName"
+	tests := []struct {
+		testname          string
+		body              string
+		expectedTypeAnnot TypeAnnotation
+		err               bool
+	}{
+		{"ok - string annotation", "(string) NodeName", TypeAnnotation("string"), false},
+		{"ok - arbitrary annotation", "(user)NodeName", TypeAnnotation("user"), false},
+		{"ok - no annotation", "NodeName", noTypeAnnot, false},
+		{"error - empty annotation", "() NodeName", noTypeAnnot, true},
+		{"error - unclosed annotation", "( NodeName", noTypeAnnot, true},
+		{"error - unexpected right par", ") NodeName", noTypeAnnot, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.testname, func(t *testing.T) {
+			parser := setup(test.body)
+			// Act
+			doc, err := parser.parse()
+
+			// Assert
+			if test.err {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				nodes := doc.Nodes()
+				require.Len(t, nodes, 1)
+
+				node := nodes[0]
+				require.Equal(t, nodeName, node.Name)
+
+				require.Empty(t, node.Props)
+				require.Empty(t, node.Args)
+
+				require.Equal(t, test.expectedTypeAnnot, node.TypeAnnotation)
+			}
 		})
 	}
 }

@@ -37,6 +37,5 @@ MyNode "string arg" myint=1234 awesome=true {
 
 ## API
 
-Although the module is useful, the API for module is very still very rough.
-
+Although the module can be used, and the API is still very rough,
 I'm grateful for any feedback and suggestion regarding the API!

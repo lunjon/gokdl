@@ -30,3 +30,6 @@ jobs:
         run: |
           go fmt ./...
           git diff --exit-code
+
+      - name: Lint
+        run: go run honnef.co/go/tools/cmd/staticcheck@latest ./...
