@@ -210,6 +210,7 @@ func TestParserNodeArgs(t *testing.T) {
 		{"rawstringhash2", `node r##"h\e\l\l"##`, `h\e\l\l`},
 		{"rawstringhash3", `node r##"he"ll"##`, `he"ll`},
 		{"rawstringhash4", `node r##"he#ll"##`, `he#ll`},
+		{"string with hash", `node "#[allow(unused)]"`, `#[allow(unused)]`},
 		{"null", "node null", nil},
 		{"true", "node true", true},
 		{"false", "node false", false},

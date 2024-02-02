@@ -110,7 +110,7 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 				return nil, err
 			}
 			typeAnnot = annot
-		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN:
+		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN, pkg.RAWSTR_HASH_CLOSE:
 			// Identifier in quotes => parse as string
 
 			var err error
@@ -118,6 +118,9 @@ func parseScope(cx *parseContext, sc *pkg.Scanner, isChild bool) ([]Node, error)
 			switch token {
 			case pkg.QUOTE:
 				str, err = scanString(cx, sc, "")
+			case pkg.RAWSTR_HASH_CLOSE:
+				str, err = scanString(cx, sc, "")
+				str = lit[1:] + str
 			case pkg.RAWSTR_OPEN:
 				str, err = scanRawString(cx, sc, "")
 			case pkg.RAWSTR_HASH_OPEN:
@@ -241,12 +244,15 @@ func scanNode(cx *parseContext, sc *pkg.Scanner, name string) (Node, error) {
 
 			args = append(args, arg)
 			typeAnnotation = ""
-		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN:
+		case pkg.QUOTE, pkg.RAWSTR_OPEN, pkg.RAWSTR_HASH_OPEN, pkg.RAWSTR_HASH_CLOSE:
 			var str string
 			var err error
 			switch token {
 			case pkg.QUOTE:
 				str, err = scanString(cx, sc, typeAnnotation)
+			case pkg.RAWSTR_HASH_CLOSE:
+				str, err = scanString(cx, sc, typeAnnotation)
+				str = lit[1:] + str
 			case pkg.RAWSTR_OPEN:
 				str, err = scanRawString(cx, sc, typeAnnotation)
 			case pkg.RAWSTR_HASH_OPEN:
